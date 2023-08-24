@@ -10,35 +10,51 @@ export default function Home() {
   const [messages, setMessages] = useState([])
   const [text, setText] = useState(null)
 
+
+  function establishWebsocket(){
+
+
+  }
+
   useEffect(() => {
+    console.log('call ws')
+    
     async function getWs() {
       if (typeof window !== "undefined") {
-        const ws = new WebSocket("ws://localhost:8000/ws/chat/")
-        ws.onmessage = async function (e) {
+        const ws = new WebSocket("ws://localhost:8000/ws/chat/test/")
+        ws.onmessage = (e) => {
           console.log(e.data)
           setMessages(arr => [...arr, e.data])
         }
-        ws.onopen = async function (e) {
+        ws.onopen = (e) => {
           console.log("Connected")
         }
+        ws.onclose = (e) => {
+          console.log('Disconnected')
+        }
         setWsInstance(ws)
-
-      }
-      return () => {
-        // Cleanup on unmount if ws wasn't closed already
-        if (ws?.readyState !== 3)
-          ws.close()
       }
     }
+
     getWs()
 
+    return () => {
+      // Cleanup on unmount if ws wasn't closed already
+      if (wsInstance?.readyState !== 3){
+        console.log('call cleanup')
+        ws.close()
+      }
+    }
   }, [])
 
   function submit() {
-    if (typeof window !== "undefined") {
-      wsInstance.send(JSON.stringify(text))
-    }
+    console.log(wsInstance)
+    console.log('attempt to send', wsInstance.readyState, text)
+    wsInstance.send(JSON.stringify({message: text, owner:"client"}))
   }
+
+  console.log(wsInstance?.readyState)
+
   return (
     <main className={styles.main}>
       <div className={styles.description}>
