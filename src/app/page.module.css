@@ -107,6 +107,84 @@
 .logo {
   position: relative;
 }
+
+.message_container {
+  list-style-type: none;
+}
+
+.message {
+  margin-bottom: 0.5rem;
+  width: 50ch;
+  max-width: 50ch;
+}
+
+.input {
+  width: max-content;
+  padding: 0.5em 1em;
+  border: 0;
+  resize: none;
+  background-color: transparent;
+  border: 1px solid coral;
+}
+
+.chat_input {
+  position: sticky;
+  bottom: 0;
+  width: 50ch;
+  max-width: 50ch;
+  display: flex;
+  justify-content: space-evenly;
+  background-color: bisque;
+  padding: 6px;
+}
+
+.send_button {
+  border: 0;
+  background-color: transparent;
+}
+
+/* loader source from css-tricks */
+.loader {
+  width: 60px;
+  /* control the size */
+  aspect-ratio: 8/5;
+  --_g: no-repeat radial-gradient(#000 68%, #0000 71%);
+  -webkit-mask: var(--_g), var(--_g), var(--_g);
+  -webkit-mask-size: 25% 40%;
+  background: orangered;
+  animation: load 2s infinite;
+}
+
+@keyframes load {
+  0% {
+    -webkit-mask-position: 0% 0%, 50% 0%, 100% 0%
+  }
+
+  16.67% {
+    -webkit-mask-position: 0% 100%, 50% 0%, 100% 0%
+  }
+
+  33.33% {
+    -webkit-mask-position: 0% 100%, 50% 100%, 100% 0%
+  }
+
+  50% {
+    -webkit-mask-position: 0% 100%, 50% 100%, 100% 100%
+  }
+
+  66.67% {
+    -webkit-mask-position: 0% 0%, 50% 100%, 100% 100%
+  }
+
+  83.33% {
+    -webkit-mask-position: 0% 0%, 50% 0%, 100% 100%
+  }
+
+  100% {
+    -webkit-mask-position: 0% 0%, 50% 0%, 100% 0%
+  }
+}
+
 /* Enable hover only on non-touch devices */
 @media (hover: hover) and (pointer: fine) {
   .card:hover {
@@ -127,6 +205,10 @@
 
 /* Mobile */
 @media (max-width: 700px) {
+  .main {
+    padding: 0.5rem;
+  }
+
   .content {
     padding: 4rem;
   }
@@ -178,11 +260,9 @@
     border-radius: 0;
     border: none;
     border-bottom: 1px solid rgba(var(--callout-border-rgb), 0.25);
-    background: linear-gradient(
-      to bottom,
-      rgba(var(--background-start-rgb), 1),
-      rgba(var(--callout-rgb), 0.5)
-    );
+    background: linear-gradient(to bottom,
+        rgba(var(--background-start-rgb), 1),
+        rgba(var(--callout-rgb), 0.5));
     background-clip: padding-box;
     backdrop-filter: blur(24px);
   }
@@ -193,12 +273,16 @@
     inset: auto 0 0;
     padding: 2rem;
     height: 200px;
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgb(var(--background-end-rgb)) 40%
-    );
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        rgb(var(--background-end-rgb)) 40%);
     z-index: 1;
+  }
+
+  .message {
+    margin-bottom: 0.5rem;
+    width: 32ch;
+    max-width: 32ch;
   }
 }
 
@@ -217,12 +301,25 @@
   .logo {
     filter: invert(1) drop-shadow(0 0 0.3rem #ffffff70);
   }
+
+  .input {
+    color: lightgreen;
+  }
+
+  .main {
+    background-color: darkolivegreen;
+  }
+
+  .chat_input {
+    background-color: darkslategray;
+  }
 }
 
 @keyframes rotate {
   from {
     transform: rotate(360deg);
   }
+
   to {
     transform: rotate(0deg);
   }

@@ -1,0 +1,36 @@
+.card {
+  color: darkgreen;
+  display: flex;
+  align-items: center;
+}
+
+.content {
+  background-color: peachpuff;
+  border-radius: 20px;
+  padding: 1em;
+}
+
+.content_user {
+  background-color: honeydew;
+}
+
+.avatar {
+  margin-right: 0.75rem;
+  min-width: 60px;
+  min-height: 60px;
+  align-self: flex-start;
+  border-radius: 20px;
+  background-color: transparent;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  .content_user {
+    background-color: aliceblue;
+  }
+
+  .content {
+    background-color: darkslategrey;
+    color: lightgreen;
+  }
+}
