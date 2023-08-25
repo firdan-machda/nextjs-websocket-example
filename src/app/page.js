@@ -13,6 +13,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  useEffect(() => {
+    const objDiv = document.getElementById("messages")
+    if (objDiv.children.length > 1) {
+      objDiv.children[objDiv.children.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [messages, loading])
+
 
   function establishWebsocket() {
     if (typeof window !== "undefined") {
@@ -29,6 +36,7 @@ export default function Home() {
         } else {
           setMessages(arr => [...arr, parsed])
         }
+
       }
       ws.onopen = (e) => {
         console.log("Connected")
@@ -64,8 +72,7 @@ export default function Home() {
     if (text !== "") {
       wsInstance.send(JSON.stringify({ message: text, owner: "client" }))
       setText("")
-      const objDiv = document.getElementById("messages")
-      objDiv.scrollIntoView(false)
+
     }
   }
 
@@ -73,8 +80,8 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      <div id="messages">
-        <ul className={styles.message_container}>
+      <div className={styles.messages}>
+        <ul id="messages" className={styles.message_container}>
           {
             messages.map((val, index) => {
               const message = val
