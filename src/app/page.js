@@ -4,6 +4,7 @@ import styles from './page.module.css'
 import { useEffect, useState } from 'react'
 import io from 'socket.io-client'
 import Card from '@/components/card'
+import Actions from '@/components/actions'
 let socket;
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
   const [text, setText] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [choices, setChoices] = useState([])
 
   useEffect(() => {
     const objDiv = document.getElementById("messages")
@@ -27,16 +29,21 @@ export default function Home() {
       ws.onmessage = (e) => {
         console.log("WS", e.data)
         const parsed = JSON.parse(e.data)
-        if (parsed.type == "system") {
-          if (parsed.message == "loading") {
-            setLoading(true)
-          } else if (parsed.message == "finished-loading") {
-            setLoading(false)
-          }
-        } else {
-          setMessages(arr => [...arr, parsed])
-        }
+        switch (parsed.type) {
+          case "system":
+            if (parsed.message == "loading") {
+              setLoading(true)
+            } else if (parsed.message == "finished-loading") {
+              setLoading(false)
+            }
+            break;
+          case "action":
+            setChoices(parsed.choices)
+            break
+          default:
+            setMessages(arr => [...arr, parsed])
 
+        }
       }
       ws.onopen = (e) => {
         console.log("Connected")
@@ -76,6 +83,13 @@ export default function Home() {
     }
   }
 
+  function submitCoinFlipAction(e) {
+    const answer = e.target.value
+    wsInstance.send(JSON.stringify({ message: "coinflip", answer: answer, owner: "client" }))
+    setChoices([])
+
+  }
+
   console.log(wsInstance?.readyState)
 
   return (
@@ -101,6 +115,7 @@ export default function Home() {
               </li>)
             })
           }
+          <Actions choices={choices} submitAction={submitCoinFlipAction} />
           {
             loading && <li key={-1}>
               <Card
@@ -126,7 +141,7 @@ export default function Home() {
           id="chat-input"
           placeholder="Type here..."
           onChange={(e) => setText(e.target.value)}
-          disabled={loading}
+          disabled={loading || choices.length > 0}
         >
         </textarea>
         <button className={styles.send_button} onClick={submit}><Image src="/media/paper-plane.png" width={60} height={60}></Image></button>
