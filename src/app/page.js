@@ -1,10 +1,14 @@
 'use client'
 import Image from 'next/image'
 import styles from './page.module.css'
-import { useEffect, useState } from 'react'
+import { createRef, useEffect, useState } from 'react'
 import io from 'socket.io-client'
 import Card from '@/components/card'
 import Actions from '@/components/actions'
+import {
+  CSSTransition,
+  TransitionGroup,
+} from 'react-transition-group';
 let socket;
 
 export default function Home() {
@@ -96,41 +100,60 @@ export default function Home() {
     <main className={styles.main}>
       <div className={styles.messages}>
         <ul id="messages" className={styles.message_container}>
-          {
-            messages.map((val, index) => {
-              const message = val
-              let previousMessage;
-              if (index > 0) {
-                previousMessage = messages[index - 1]
-              }
-              const drawAvatar = message.owner == "server" && ((index > 0 && previousMessage.owner !== "server") || index == 0)
-              return (<li key={index} className={styles.message}>
-                <Card
-                  message={message.message}
-                  avatar={drawAvatar
-                    ? <Image src="/media/chatbot.png" width={60} height={60} />
-                    : null}
-                  userMessage={message.owner == "client"}
-                />
-              </li>)
-            })
-          }
-          <Actions choices={choices} submitAction={submitCoinFlipAction} />
-          {
-            loading && <li key={-1}>
-              <Card
-                message={<div className={styles.loader}></div>}
-              >
-              </Card>
-            </li>
-          }
-          {
-            error && <li>
-              {error}
-            </li>
-          }
-        </ul>
+          <TransitionGroup>
+            {
+              messages.map((val, index) => {
+                const message = val
+                let previousMessage;
+                if (index > 0) {
+                  previousMessage = messages[index - 1]
+                }
+                const drawAvatar = message.owner == "server" && ((index > 0 && previousMessage.owner !== "server") || index == 0)
+                return (
+                  <CSSTransition
+                    key={index}
+                    timeout={1000}
+                    classNames="itemanim"
+                  >
+                    <li key={index} className={styles.message}>
+                      <Card
+                        message={message.message}
+                        avatar={drawAvatar
+                          ? <Image src="/media/chatbot.png" width={60} height={60} />
+                          : null}
+                        userMessage={message.owner == "client"}
+                      />
+                    </li>
+                  </CSSTransition>
+                )
+              })
+            }
+            </TransitionGroup>
+            <Actions choices={choices} submitAction={submitCoinFlipAction} />
+            <CSSTransition
+              key={-1}
+              timeout={1000}
+              classNames="itemanim"
+              in={loading}
+            >
+              <>
+                {
+                  loading &&
+                  <li key={-1}>
+                    <Card
+                      message={<div className={styles.loader}></div>}
+                    />
+                  </li>
+                }
+              </>
+            </CSSTransition>
+            {
+              error && <li>
+                {error}
+              </li>
+            }
 
+        </ul>
 
       </div>
       <div className={styles.chat_input}>

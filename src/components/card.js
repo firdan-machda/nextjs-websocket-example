@@ -9,7 +9,7 @@ export default function Card({ avatar, message, userMessage, action }) {
         </span>
       }
 
-      <div className={`${styles.content} ${userMessage ? styles.content_user : null} ${action ? styles.action : null}`}>
+      <div className={`${styles.content} ${userMessage ? styles.content_user : ""} ${action ? styles.action : ""}`}>
         {message}
       </div>
     </div>
