@@ -86,15 +86,35 @@ a {
   text-decoration: none;
 }
 
-.itemanim-enter {
-  opacity: 1;
+.server-message-anim-enter {
+  opacity: 0;
   transform: translateY(100%);
+}
+
+.server-message-anim-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: 300ms ease-out;
+}
+
+.server-message-anim-exit {
+  opacity: 1;
+}
+
+.server-message-anim-exit-active {
+  opacity: 0;
+  transition: opacity 500ms ease-in;
+}
+
+.itemanim-enter {
+  opacity: 0;
+  transform: translateX(-100%);
 }
 
 .itemanim-enter-active {
   opacity: 1;
-  transform: translateY(0);
-  transition: 750ms ease-out;
+  transform: translateX(0);
+  transition: 500ms ease-out;
 }
 
 .itemanim-exit {

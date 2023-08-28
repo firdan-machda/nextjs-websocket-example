@@ -18,6 +18,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [choices, setChoices] = useState([])
+  const [delay, setDelay] = useState(0)
 
   useEffect(() => {
     const objDiv = document.getElementById("messages")
@@ -113,7 +114,7 @@ export default function Home() {
                   <CSSTransition
                     key={index}
                     timeout={1000}
-                    classNames="itemanim"
+                    classNames={ message.owner == "client" ? "" : "server-message-anim"}
                   >
                     <li key={index} className={styles.message}>
                       <Card
@@ -133,7 +134,7 @@ export default function Home() {
             <CSSTransition
               key={-1}
               timeout={1000}
-              classNames="itemanim"
+              classNames=""
               in={loading}
             >
               <>
