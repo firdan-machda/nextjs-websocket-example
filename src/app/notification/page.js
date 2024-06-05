@@ -28,6 +28,7 @@ export default function NotificationPage() {
     }
     subscribe(reg);
   }
+
   function urlB64ToUnit8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
@@ -123,10 +124,15 @@ export default function NotificationPage() {
       },
 
     }).then((result) => {
+      console.log(result)
       return result.json()
     }).then((result) => {
-      const { token, payload } = result.data.tokenAuth
-      setToken(token)
+      if (result.data.tokenAuth){
+        const { token, payload } = result.data.tokenAuth
+        setToken(token)
+      }else {
+        alert("Failed to login, wrong username or password")
+      }
     });
   }
 
@@ -160,7 +166,12 @@ export default function NotificationPage() {
     if ('serviceWorker' in navigator) {
       const serviceWorker = await navigator.serviceWorker.ready
       const subscription = await serviceWorker.pushManager.getSubscription()
-      const success = await subscription.unsubscribe()
+      if (!subscription) {
+        const success = await subscription.unsubscribe()
+        if (!success) {
+          setErrorMessage("Failed to unsubscribe")
+        }
+      }
       // TODO: Instead of making service worker redundant, try to update it to latest state
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (const registration of registrations) {
@@ -204,8 +215,17 @@ export default function NotificationPage() {
     }).then((result) => {
       return result.json()
     }).then((result) => {
-      if (result.data.sendNotification.status !== 200) {
+      console.log(result)
+      if (result.errors) {
+        result.errors.forEach((error) => {
+          console.log(error)
+        })
+        return
+      } 
+      
+      if (result.data?.sendNotification.status !== 200) {
         setErrorMessage("Failed to send notification")
+        return
       }
     });
   }
