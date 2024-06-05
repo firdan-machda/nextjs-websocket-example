@@ -8,6 +8,7 @@ export default function NotificationPage() {
   const [isLogin, setIsLogin] = useState(token !== null)
   const [vapidPublicKey, setVapidPublicKey] = useState("")
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false)
+  const [notificationEnabled, setNotificationEnabled] = useState(false)
   const [status, setStatus] = useState("standby")
 
   // https://www.digitalocean.com/community/tutorials/how-to-send-web-push-notifications-from-django-applications
@@ -91,6 +92,7 @@ export default function NotificationPage() {
       .then(result =>  { 
         console.log(result) 
         setStatus("subscribed")
+        setNotificationEnabled(true)
       });
 
   };
@@ -131,6 +133,7 @@ export default function NotificationPage() {
   }
 
   const getVapidPublicKey = () => {
+    setStatus("obtaining vapid public key")
     const query = `
     query {
       vapidPublicKey
@@ -161,15 +164,9 @@ export default function NotificationPage() {
       const serviceWorker = await navigator.serviceWorker.ready
       const subscription = await serviceWorker.pushManager.getSubscription()
       const success = await subscription.unsubscribe()
-      // TODO: Instead of making service worker redundant, try to update it to latest state
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (const registration of registrations) {
-          if (registration.active.state !== "redundant") {
-            registration.unregister();
-          }
-        }
-      });
       setVapidPublicKey("")
+      setStatus("standby")
+      setNotificationEnabled(false)
       setServiceWorkerReady(false)
     }
 
@@ -237,6 +234,7 @@ export default function NotificationPage() {
       <h2>Login & Subscribe for Notification</h2>
       <p>Login using username and password created from the server to request VAPID Public Key</p>
       <p>Status: {status}</p>
+      <p>Notification Ready Status: {notificationEnabled.toString()}</p>
       <form onSubmit={handleLogin} className={styles.loginForm} disabled={isLogin}>
         <label htmlFor="username">Username</label>
         <input type="text" name="username" id="username"></input>
