@@ -1,0 +1,17 @@
+.loginForm {
+  display: flex;
+  flex-direction: column;
+}
+
+.loginForm > label {
+  margin-top: 1em;
+}
+
+.loginForm > input {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.loginForm > button {
+  margin-top: 1em;
+}

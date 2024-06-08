@@ -1,12 +1,15 @@
 'use client'
 import { useEffect, useState } from "react"
+import Cookies from "universal-cookie"
 import styles from './page.module.css'
+import { login } from "@/authService"
+import LoginForm from "@/components/login-form"
 
 export default function NotificationPage() {
+  const cookies = new Cookies()
   const [token, setToken] = useState(null)
   const [errorMessage, setErrorMessage] = useState("")
   const [isLogin, setIsLogin] = useState(token !== null)
-  const [vapidPublicKey, setVapidPublicKey] = useState("")
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false)
   const [notificationEnabled, setNotificationEnabled] = useState(false)
   const [status, setStatus] = useState("standby")
@@ -50,7 +53,7 @@ export default function NotificationPage() {
     }
 
     // need to query for vapid public key
-    const key = vapidPublicKey
+    const key = process.env.NEXT_PUBLIC_VAPID_KEY
     const options = {
       userVisibleOnly: true,
       // if key exists, create applicationServerKey property
@@ -86,7 +89,7 @@ export default function NotificationPage() {
       }),
       headers: {
         'content-type': 'application/json',
-        'authorization': `JWT ${token}`,
+        'authorization': cookies.get("jwt-token", false) ? `JWT ${cookies.get("jwt-token")}`: "",
       },
     }).then(res => res.json())
       .then(result =>  { 
@@ -104,67 +107,22 @@ export default function NotificationPage() {
     formData.forEach((value, key) => { formDataObj[key] = value });
     const { username, password } = formDataObj
 
-    const query = `
-    mutation login($username: String!, $password: String!) {
-      tokenAuth(username: $username, password: $password) {
-        payload
-        token
-      }
-    }`
-
-    fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: query,
-        variables: {
-          username, password
-        }
-      }),
-      headers: {
-        'content-type': 'application/json',
-      },
-
-    }).then((result) => {
-      return result.json()
-    }).then((result) => {
+    login(username, password).then((result) => {
       const { token, payload } = result.data.tokenAuth
-      setToken(token)
-    });
-  }
-
-  const getVapidPublicKey = () => {
-    setStatus("obtaining vapid public key")
-    const query = `
-    query {
-      vapidPublicKey
-    }`
-
-    fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: query,
-      }),
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `JWT ${token}`,
-      },
-
-    }).then((result) => {
-      return result.json()
-    }).then((result) => {
-      setVapidPublicKey(result.data.vapidPublicKey)
+      cookies.set("jwt-token", token)
       setServiceWorkerReady(true)
+      setIsLogin(true)
     });
   }
 
   const logout = async () => {
     setToken(null)
+    cookies.remove("jwt-token")
     // https://stackoverflow.com/a/33705250
     if ('serviceWorker' in navigator) {
       const serviceWorker = await navigator.serviceWorker.ready
       const subscription = await serviceWorker.pushManager.getSubscription()
       const success = await subscription.unsubscribe()
-      setVapidPublicKey("")
       setStatus("standby")
       setNotificationEnabled(false)
       setServiceWorkerReady(false)
@@ -223,11 +181,10 @@ export default function NotificationPage() {
   }, [serviceWorkerReady])
 
   useEffect(() => {
-    setIsLogin(token !== null)
-    if (token !== null) {
+    if (isLogin) {
       getVapidPublicKey()
     }
-  }, [token])
+  }, [isLogin])
 
   return <div>
     <div className={styles.loginFormContainer}>
@@ -235,15 +192,7 @@ export default function NotificationPage() {
       <p>Login using username and password created from the server to request VAPID Public Key</p>
       <p>Status: {status}</p>
       <p>Notification Ready Status: {notificationEnabled.toString()}</p>
-      <form onSubmit={handleLogin} className={styles.loginForm} disabled={isLogin}>
-        <label htmlFor="username">Username</label>
-        <input type="text" name="username" id="username"></input>
-        <label htmlFor="password">Password</label>
-        <input type="password" name="password" id="password"></input>
-        <button type="submit" value="Submit" disabled={isLogin}>
-          Login
-        </button>
-      </form>
+      <LoginForm disabled={isLogin} onSubmit={handleLogin}/>
       <button disabled={!isLogin} onClick={logout}>
         Logout
       </button>
