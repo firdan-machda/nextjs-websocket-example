@@ -1,7 +1,7 @@
 'use client'
 import styles from "./page.module.css"
 import Cookies from "universal-cookie"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { login, logout } from "@/authService"
 import LoginForm from "@/components/login-form"
 import { getChatroom, joinChatroom } from "@/chatroomService"
@@ -13,6 +13,8 @@ import {
   TransitionGroup,
 } from 'react-transition-group';
 import NotificationServiceWorker from "@/components/notification-service-worker"
+import { decrypt, encrypt, exportCryptoKey, importKeyRaw } from "../../../utils/crypto"
+
 
 export default function LiveChatroom() {
   const cookies = new Cookies()
@@ -21,12 +23,15 @@ export default function LiveChatroom() {
   const [chatReady, setChatReady] = useState(false)
   const [isLogin, setIsLogin] = useState(false)
   const [chatrooms, setChatrooms] = useState(["asdf"])
-  const [wsInstance, setWsInstance] = useState(null);
   const [messages, setMessages] = useState([])
   const [text, setText] = useState("")
   const [chatRestart, setChatRestart] = useState(false)
   const [notificationReady, setNotificationReady] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+
+  const sharedSecretRef = useRef(null)
+  const keyPairRef = useRef(null)
+  const websocketRef = useRef(null)
 
   const handleLogin = (e) => {
     e.preventDefault()
@@ -42,20 +47,78 @@ export default function LiveChatroom() {
       setNotificationReady(true)
     });
   }
-  function submit() {
-    console.log(wsInstance)
-    console.log('attempt to send', wsInstance.readyState, text)
+  async function submit() {
+    console.log(websocketRef.current)
+    console.log('attempt to send', websocketRef.current.readyState, text)
     if (text !== "") {
-      wsInstance.send(JSON.stringify({ message: text }))
+      // encrypt and send
+      const { algorithm, iv, message } = await encrypt(text, sharedSecretRef.current)
+      websocketRef.current.send(JSON.stringify({ message: message, iv: iv, algorithm: algorithm }))
       setText("")
     }
+  }
+
+  async function sendECDHKey() {
+    const keyPair = await window.crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-384"
+      },
+      false,
+      ["deriveKey"]
+    )
+    console.debug(keyPair)
+    keyPairRef.current = keyPair
+
+    // send as PEM
+    const publicKey = await exportCryptoKey(keyPair.publicKey)
+    console.debug("public export", publicKey, keyPair.publicKey)
+
+
+    // await sendPublicKey()
+    websocketRef.current.send(JSON.stringify({
+      type: "handshake",
+      message: publicKey
+    }))
+  }
+
+  async function handleHandshake(data) {
+    // skip handling if public key is the same (Unsafe?)
+    console.debug(data.message)
+    const otherPublicKey = await importKeyRaw(data.message)
+    const secretKey = await window.crypto.subtle.deriveKey(
+      {
+        name: "ECDH",
+        public: otherPublicKey,
+      },
+      keyPairRef.current.privateKey,
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      false,
+      ["encrypt", "decrypt"]
+    );
+    sharedSecretRef.current = secretKey
+
+  }
+
+  async function handleMessage(data) {
+    const { iv, algorithm, message, type, owner } = data
+    const decryptedMessage = await decrypt(message, sharedSecretRef.current, iv, algorithm)
+    console.debug(decryptedMessage)
+    const newMessage = {
+      type: type, owner: owner, message: decryptedMessage
+    }
+    setMessages(arr => [...arr, newMessage])
+
   }
 
   function establishWebsocket() {
     if (typeof window !== "undefined") {
       const ws = new WebSocket(
-        `${process.env.NEXT_PUBLIC_WEBSOCKET_HOST}/ws/livechat/${roomID}/?jwt-token=${cookies.get("jwt-token","")}`, 
-        )
+        `${process.env.NEXT_PUBLIC_WEBSOCKET_HOST}/ws/livechat/${roomID}/?jwt-token=${cookies.get("jwt-token", "")}`,
+      )
       ws.onmessage = (e) => {
         console.log("WS", e.data)
         const parsed = JSON.parse(e.data)
@@ -70,8 +133,18 @@ export default function LiveChatroom() {
           case "action":
             setChoices(parsed.choices)
             break
+          case "init-handshake":
+            sendECDHKey()
+            break
+          case "handshake":
+            handleHandshake(parsed)
+            break
+          case "message":
+            handleMessage(parsed)
+            break
           default:
             setMessages(arr => [...arr, parsed])
+            break;
 
         }
       }
@@ -82,7 +155,7 @@ export default function LiveChatroom() {
       ws.onclose = (e) => {
         console.log('Disconnected')
       }
-      setWsInstance(ws)
+      websocketRef.current = ws
       setLoading(false)
     }
 
@@ -114,8 +187,8 @@ export default function LiveChatroom() {
     e.preventDefault()
     if (roomID !== "") {
       // kill wsinstance
-      if (wsInstance && wsInstance.readyState <= 1) {
-        wsInstance.close()
+      if (websocketRef.current && websocketRef.current.readyState <= 1) {
+        websocketRef.current.close()
         setChatRestart(true)
       }
       setMessages([])
@@ -174,9 +247,9 @@ export default function LiveChatroom() {
 
     return () => {
       // Cleanup on unmount if ws wasn't closed already
-      if (wsInstance !== null && wsInstance?.readyState !== 3) {
+      if (websocketRef.current !== null && websocketRef.current?.readyState !== 3) {
         console.log('call cleanup')
-        wsInstance.close()
+        websocketRef.current.close()
       }
     }
   }, [chatReady, chatRestart])
