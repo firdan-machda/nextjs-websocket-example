@@ -29,8 +29,8 @@ export async function encrypt(message, secretKey) {
   // let buffer = new Uint8Array(ciphertext, 0, 5);
   return {
     algorithm: algorithm,
-    iv: ab2str(iv),
-    message: ab2str(ciphertext)
+    iv: window.btoa(ab2str(iv)),
+    message: window.btoa(ab2str(ciphertext))
   }
 }
 
@@ -39,10 +39,10 @@ export async function decrypt(ciphertext, secretKey, iv, algorithm) {
     let decrypted = await window.crypto.subtle.decrypt(
       {
         name: algorithm,
-        iv: str2ab(iv),
+        iv: str2ab(window.atob(iv)),
       },
       secretKey,
-      str2ab(ciphertext)
+      str2ab(window.atob(ciphertext))
     );
 
     let dec = new TextDecoder();
