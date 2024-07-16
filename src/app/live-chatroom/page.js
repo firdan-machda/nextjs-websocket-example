@@ -83,7 +83,6 @@ export default function LiveChatroom() {
   }
 
   async function handleHandshake(data) {
-    // skip handling if public key is the same (Unsafe?)
     console.debug(data.message)
     const otherPublicKey = await importKeyRaw(data.message)
     const secretKey = await window.crypto.subtle.deriveKey(

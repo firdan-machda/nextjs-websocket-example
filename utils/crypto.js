@@ -63,3 +63,20 @@ export function importKeyRaw(key) {
   const parsedKey = new Uint8Array(JSON.parse(key))
   return window.crypto.subtle.importKey("raw", parsedKey, { name: "ECDH", namedCurve: "P-384" }, true, [])
 }
+
+export async function deriveSharedSecret(publicKey, keyPair) {
+  const decodedPublicKey = await importKeyRaw(publicKey)
+  return window.crypto.subtle.deriveKey(
+    {
+      name: "ECDH",
+      public: decodedPublicKey,
+    },
+    keyPair.privateKey,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
