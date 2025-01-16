@@ -6,11 +6,35 @@ import { login, logout } from "@/authService";
 import Cookies from "universal-cookie";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
+
 export default function VideoCall() {
+  const configuration = {
+    iceServers: [
+      {
+        urls: "stun:openrelay.metered.ca:80",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+    ],
+  }
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
   const websocketRef = useRef(null)
   const rtcPeerConnectionRef = useRef(null)
+  const sendChannelRef = useRef(null)
   const [isLogin, setIsLogin] = useState(false)
   const [roomID, setRoomID] = useState("")
   const [chatReady, setChatReady] = useState(false)
@@ -18,6 +42,10 @@ export default function VideoCall() {
   const [chatRestart, setChatRestart] = useState(false)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
+  const [micAudio, setMicAudio] = useState(true)
+  const [sendingOffer, setSendingOffer] = useState(false)
+  const [ignoreOffer, setIgnoreOffer] = useState(false)
+  const [politeOffer, setPoliteOffer] = useState(true)
   const cookies = new Cookies()
 
 
@@ -89,13 +117,19 @@ export default function VideoCall() {
         console.log("WS", e.data)
         const parsed = JSON.parse(e.data)
         switch (parsed.type) {
-          case "user-join":
+          case "init-handshake":
             createPeerConnection()
-            sendOffer()
             break
           case "user-offer":
           case "user-candidate":
             signalingDataHandler(parsed.data)
+            break
+          case "user-disconnect":
+            console.debug("Closing Peer connection")
+            setSendingOffer(false)
+            setIgnoreOffer(false)
+            rtcPeerConnectionRef.current.close()
+            rtcPeerConnectionRef.current = null
             break
           case "system":
             if (parsed.message == "loading") {
@@ -124,14 +158,13 @@ export default function VideoCall() {
       }
       ws.onopen = (e) => {
         console.log("Connected")
-        setLoading(false)
 
       }
       ws.onclose = (e) => {
         console.log('Disconnected')
       }
       websocketRef.current = ws
-      setLoading(false)
+      // setLoading(false)
     }
 
   }
@@ -177,44 +210,70 @@ export default function VideoCall() {
     });
   };
 
-  const signalingDataHandler = (data) => {
-    if (data.type === "offer") {
-      createPeerConnection();
-      rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data));
-      sendAnswer();
+  const signalingDataHandler = async (data) => {
+    if (data.type === "offer" || data.type === "answer") {
+      const offerCollision = (data.type === "offer" && (sendingOffer || rtcPeerConnectionRef.current.signalingState !== "stable"))
+      const ignore = (!politeOffer && offerCollision)
+      setIgnoreOffer(ignore)
+      if (ignore) {
+        return
+      }
+      await rtcPeerConnectionRef.current.setRemoteDescription(data);
+      if (data.type === "offer") {
+        await rtcPeerConnectionRef.current.setLocalDescription()
+        console.debug("sending offer", rtcPeerConnectionRef.current.localDescription)
+        sendData({ type: "offer", data: rtcPeerConnectionRef.current.localDescription })
+      }
+
     } else if (data.type === "answer") {
+      console.debug("Received answer", data)
       rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
-      rtcPeerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+      try {
+        rtcPeerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {
+        if (!ignoreOffer) {
+          throw err;
+        }
+      }
     } else {
       console.log("Unknown Data");
     }
   };
 
+  async function onNegotiationNeeded() {
+    try {
+      setSendingOffer(true)
+      await rtcPeerConnectionRef.current.setLocalDescription()
+      console.debug("sending onnegotiatonneeded", rtcPeerConnectionRef.current.localDescription)
+      sendData({
+        type: "offer",
+        data: rtcPeerConnectionRef.current.localDescription
+      })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSendingOffer(false)
+    }
+  }
+
+  function handleSendChannelStatusChange(event) {
+    if (sendChannelRef.current) {
+      const state = sendChannelRef.current.readyState
+      if (state === "open") {
+        console.debug("channel is open")
+      } else {
+        console.debug("channel is closed")
+      }
+    }
+  }
+
   const createPeerConnection = () => {
     try {
-      rtcPeerConnectionRef.current = new RTCPeerConnection({
-        iceServers: [
-          {
-            urls: "stun:openrelay.metered.ca:80",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:80",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443?transport=tcp",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-        ],
-      });
+      rtcPeerConnectionRef.current = new RTCPeerConnection(configuration);
+      sendChannelRef.current = rtcPeerConnectionRef.current.createDataChannel("chat", { negotiated: true, id: 0 })
+      sendChannelRef.current.onopen = handleSendChannelStatusChange
+      rtcPeerConnectionRef.current.onnegotiationneeded = onNegotiationNeeded 
       rtcPeerConnectionRef.current.onicecandidate = onIceCandidate;
       rtcPeerConnectionRef.current.ontrack = onTrack;
       const localStream = localVideoRef.current.srcObject;
@@ -236,9 +295,22 @@ export default function VideoCall() {
     }
   };
 
-  const onTrack = (event) => {
-    console.log("Adding remote track");
-    remoteVideoRef.current.srcObject = event.streams[0];
+  const onTrack = ({ track, streams }) => {
+    console.log("Adding remote track", track, streams);
+
+    track.onunmute = () => {
+      if (remoteVideoRef.current.srcObject) {
+        remoteVideoRef.current.srcObject.addTrack(track)
+        return
+      }
+      remoteVideoRef.current.srcObject = streams[0]
+    }
+    track.onended = () => {
+      if (remoteVideoRef.current.srcObject) {
+        remoteVideoRef.current.srcObject = null
+      }
+
+    }
   };
   function handleJoinChatroom(e) {
     e.preventDefault()
@@ -275,6 +347,35 @@ export default function VideoCall() {
     console.debug(e.target.value)
     setRoomID(e.target.value)
   }
+  async function toggleMic(on) {
+    console.debug("Toggling mic", on)
+    if (on) {
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      })
+      const audioTrack = audioStream.getAudioTracks()[0]
+      localVideoRef.current.srcObject.addTrack(audioTrack)
+      const audioSender = rtcPeerConnectionRef.current.getSenders().find(e => e.track?.kind === 'audio')
+      if (audioSender == null) {
+        rtcPeerConnectionRef.current.addTrack(audioTrack)
+      } else {
+        await audioSender.replaceTrack(audioTrack)
+      }
+
+    } else {
+      for (const audioTrack of localVideoRef.current.srcObject.getAudioTracks()) {
+        console.debug("toggling", audioTrack)
+        audioTrack.stop()
+      }
+    }
+
+  }
+  function toggleVideo() {
+    for (const mediaTrack of localVideoRef.current.srcObject.getVideoTracks()) {
+      mediaTrack.enabled = !mediaTrack.enabled
+      console.debug("toggling", mediaTrack)
+    }
+  }
   return <main>
     <div className={styles.chatContainer}>
 
@@ -303,8 +404,24 @@ export default function VideoCall() {
         </button>
       </div>
       <div className={styles.chatRoom}>
-        <video autoPlay muted playsInline ref={localVideoRef} />
-        <video autoPlay muted playsInline ref={remoteVideoRef} />
+        <div className={styles.videoContainer}>
+          <div className={styles.video}>
+            <video autoPlay muted playsInline ref={localVideoRef} />
+          </div>
+          <div className={styles.video}>
+            <video autoPlay playsInline ref={remoteVideoRef} />
+          </div>
+        </div>
+        <div className={styles.videoController}>
+          <button onClick={e => { setMicAudio(prev => !prev); toggleMic(micAudio) }}>Toggle Mic/Mute</button>
+          <button onClick={toggleVideo}>Toggle Video</button>
+          <div>
+            <p>
+              Polite: {politeOffer.toString()}
+            </p>
+            <button onClick={e => setPoliteOffer(prev => !prev)}>Toggle Polite</button>
+          </div>
+        </div>
       </div>
     </div>
   </main>

@@ -87,6 +87,6 @@ export async function joinVideoChatroom(chatroomID = null) {
     },
   })
   const resJson = await res.json()
-  const data = resJson.data.joinChatroom
+  const data = resJson.data.joinVideoChatroom
   return data
 }
