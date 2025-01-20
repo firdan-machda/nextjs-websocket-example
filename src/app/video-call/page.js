@@ -46,13 +46,29 @@ export default function VideoCall() {
   const [sendingOffer, setSendingOffer] = useState(false)
   const [ignoreOffer, setIgnoreOffer] = useState(false)
   const [politeOffer, setPoliteOffer] = useState(true)
+  const [isScreenShare, setIsScreenShare] = useState(false)
+  const [audioInputSource, setAudioInputSource] = useState(undefined)
+  const [audioOutputSource, setAudioOutputSource] = useState(undefined)
+  const [videoSource, setVideoSource] = useState(undefined)
+
+  const [audioOutputOptions, setAudioOutputOptions] = useState([])
+  const [audioInputOptions, setAudioInputOptions] = useState([])
+  const [videoInputOptions, setVideoInputOptions] = useState([])
+
+  const [hasMic, setHasMic] = useState(false)
+  const [hasCamera, setHasCamera] = useState(false)
+  const [hasPermission, setHasPermission] = useState(false)
+
+  const [openMic, setOpenMic] = useState(null)
+  const [openVideo, setOpenVideo] = useState(null)
+
   const cookies = new Cookies()
 
 
   useEffect(() => {
     if (chatReady || chatRestart) {
-      startConnection()
       setChatRestart(false)
+      startConnection()
     }
     return () => {
       console.log("call cleanup")
@@ -67,6 +83,7 @@ export default function VideoCall() {
     } else {
       setChatReady(false)
     }
+    getDevices()
 
   }, [roomID])
 
@@ -74,11 +91,18 @@ export default function VideoCall() {
     getChatroom().then((result) => {
       setChatrooms(result)
     })
+
   }, [isLogin])
 
   useEffect(() => {
     const haveCookie = cookies.get("jwt-token") !== undefined
     setIsLogin(haveCookie)
+    if (navigator.mediaDevices) {
+      console.debug("setting ondevicechange")
+      navigator.mediaDevices.ondevicechange = (e) => {
+        getDevices()
+      }
+    }
   }, [])
 
   function sendData(data) {
@@ -130,6 +154,13 @@ export default function VideoCall() {
             setIgnoreOffer(false)
             rtcPeerConnectionRef.current.close()
             rtcPeerConnectionRef.current = null
+            sendChannelRef.current.close()
+            sendChannelRef.current = null
+            remoteVideoRef.current.srcObject?.getTracks().forEach(track => {
+              track.stop()
+              remoteVideoRef.current.srcObject.removeTrack(track)
+            })
+
             break
           case "system":
             if (parsed.message == "loading") {
@@ -169,23 +200,102 @@ export default function VideoCall() {
 
   }
   function startConnection() {
+    const audioSource = audioInputSource || undefined
+    const videoInputSource = videoSource || undefined
+    if (!hasPermission && !(audioSource || videoInputSource)) {
+      console.warn("no permission")
+      return
+    }
+    const constraints = {
+      video: true,
+      audio: micAudio
+    }
+    if (hasMic && micAudio) {
+      constraints['audio'] = { deviceId: audioSource ? { exact: audioSource } : undefined }
+    }
+    if (hasCamera) {
+      constraints['video'] = { deviceId: videoInputSource ? { exact: videoInputSource } : undefined }
+    }
+    // const constraints = getConstraints()
+    console.debug("constraints", constraints)
     navigator.mediaDevices
-      .getUserMedia({
-        audio: false,
-        video: {
-          height: 650,
-          width: 650,
-        },
-      })
+      .getUserMedia(constraints)
       .then((stream) => {
         console.log("Local Stream found");
         localVideoRef.current.srcObject = stream;
         establishWebsocket()
+        setOpenMic(audioSource)
+        setOpenVideo(videoInputSource)
       })
       .catch((error) => {
         console.error("Stream not found: ", error);
       });
   };
+
+  function getConstraints() {
+    const audioSource = audioInputSource || undefined
+    const videoInputSource = videoSource || undefined
+    if (!hasPermission && !(audioSource || videoInputSource)) {
+      console.warn("no permission")
+      return
+    }
+    const constraints = { video: true, audio: micAudio }
+    let changes = "";
+    // const constraints = {
+    //   video: true,
+    //   audio: micAudio
+    // }
+    if (hasMic && micAudio && (audioSource != openMic)) {
+      constraints['audio'] = { deviceId: audioSource ? { exact: audioSource } : undefined }
+      changes = changes.concat("audio");
+    }
+    if (hasCamera && (videoInputSource != openVideo)) {
+      constraints['video'] = { deviceId: videoInputSource ? { exact: videoInputSource } : undefined }
+      changes = changes.concat("video");
+    }
+    return { constraints, changes }
+  }
+
+  async function changeIOSource() {
+    const { constraints, changes } = getConstraints()
+    const stream = await navigator.mediaDevices.getUserMedia(
+      constraints
+    )
+    if (changes == "audio" || changes == "audiovideo") {
+      const audioTrack = stream.getAudioTracks()[0]
+      for (const audioTrack of localVideoRef.current.srcObject.getAudioTracks()) {
+        console.debug("stopping", audioTrack)
+        audioTrack.stop()
+      }
+      localVideoRef.current.srcObject.addTrack(audioTrack)
+      if (rtcPeerConnectionRef.current) {
+        const audioSender = rtcPeerConnectionRef.current.getSenders().find(e => e.track?.kind === 'audio')
+        if (audioSender == null) {
+          rtcPeerConnectionRef.current.addTrack(audioTrack)
+        } else {
+          await audioSender.replaceTrack(audioTrack)
+        }
+      }
+      setOpenMic(audioInputSource)
+    }
+    if (changes == "video") {
+      const videoTrack = stream.getVideoTracks()[0]
+      for (const videoTrack of localVideoRef.current.srcObject.getVideoTracks()) {
+        videoTrack.stop()
+      }
+      localVideoRef.current.srcObject.addTrack(videoTrack)
+      if (rtcPeerConnectionRef.current) {
+        const videoSender = rtcPeerConnectionRef.current.getSenders().find(e => e.track?.kind === 'video')
+        if (videoSender == null) {
+          rtcPeerConnectionRef.current.addTrack(videoTrack)
+        } else {
+          await videoSender.replaceTrack(videoTrack)
+        }
+      }
+      setOpenVideo(videoSource)
+    }
+
+  }
 
   const setAndSendLocalDescription = (sessionDescription) => {
     rtcPeerConnectionRef.current.setLocalDescription(sessionDescription);
@@ -216,6 +326,7 @@ export default function VideoCall() {
       const ignore = (!politeOffer && offerCollision)
       setIgnoreOffer(ignore)
       if (ignore) {
+        console.debug("ignoring offer")
         return
       }
       await rtcPeerConnectionRef.current.setRemoteDescription(data);
@@ -257,6 +368,12 @@ export default function VideoCall() {
     }
   }
 
+  function onIceConnectionStateChange() {
+    if (rtcPeerConnectionRef.iceConnectionState === "failed") {
+      rtcPeerConnectionRef.restartIce()
+    }
+  }
+
   function handleSendChannelStatusChange(event) {
     if (sendChannelRef.current) {
       const state = sendChannelRef.current.readyState
@@ -273,7 +390,11 @@ export default function VideoCall() {
       rtcPeerConnectionRef.current = new RTCPeerConnection(configuration);
       sendChannelRef.current = rtcPeerConnectionRef.current.createDataChannel("chat", { negotiated: true, id: 0 })
       sendChannelRef.current.onopen = handleSendChannelStatusChange
-      rtcPeerConnectionRef.current.onnegotiationneeded = onNegotiationNeeded 
+      sendChannelRef.current.onclose = () => {
+        console.debug("channel is closed")
+      }
+      rtcPeerConnectionRef.current.onnegotiationneeded = onNegotiationNeeded
+      rtcPeerConnectionRef.current.oniceconnectionstatechange = onIceConnectionStateChange
       rtcPeerConnectionRef.current.onicecandidate = onIceCandidate;
       rtcPeerConnectionRef.current.ontrack = onTrack;
       const localStream = localVideoRef.current.srcObject;
@@ -296,20 +417,23 @@ export default function VideoCall() {
   };
 
   const onTrack = ({ track, streams }) => {
-    console.log("Adding remote track", track, streams);
 
-    track.onunmute = () => {
-      if (remoteVideoRef.current.srcObject) {
-        remoteVideoRef.current.srcObject.addTrack(track)
-        return
+    console.log("Adding remote track", track, streams);
+    if (remoteVideoRef.current.srcObject) {
+      remoteVideoRef.current.srcObject.addTrack(track)
+      track.onended = () => {
+        if (remoteVideoRef.current.srcObject) {
+          remoteVideoRef.current.srcObject.removeTrack(track)
+        }
       }
-      remoteVideoRef.current.srcObject = streams[0]
+      return
     }
+    console.debug("new stream")
+    remoteVideoRef.current.srcObject = streams[0]
     track.onended = () => {
       if (remoteVideoRef.current.srcObject) {
         remoteVideoRef.current.srcObject = null
       }
-
     }
   };
   function handleJoinChatroom(e) {
@@ -376,6 +500,51 @@ export default function VideoCall() {
       console.debug("toggling", mediaTrack)
     }
   }
+
+  async function getDevices() {
+    await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    navigator.mediaDevices.enumerateDevices().then(gotDevices).catch(e => console.error(e));
+  }
+
+  function gotDevices(deviceInfos) {
+    console.log('gotDevices', deviceInfos);
+    setHasMic(false)
+    setHasCamera(false)
+    setHasPermission(false)
+    setVideoInputOptions([])
+    setAudioInputOptions([])
+    for (let i = 0; i !== deviceInfos.length; ++i) {
+      const deviceInfo = deviceInfos[i];
+      if (deviceInfo.deviceId == '') {
+        continue;
+      }
+      // If we get at least one deviceId, that means user has granted user
+      // media permissions.
+      setHasPermission(true)
+      const newOption = { id: deviceInfo.deviceId, label: "" }
+      if (deviceInfo.kind === 'audioinput') {
+        setHasMic(true)
+        newOption.label = deviceInfo.label || `microphone ${audioInputSelect.length + 1}`;
+        setAudioInputOptions(arr => [...arr, newOption])
+        if (!audioInputSource) {
+          setAudioInputSource(newOption.id)
+        }
+      } else if (deviceInfo.kind === 'audiooutput') {
+        newOption.label = deviceInfo.label || `speaker ${audioOutputSelect.length + 1}`;
+        setAudioOutputOptions(arr => [...arr, newOption])
+      } else if (deviceInfo.kind === 'videoinput') {
+        setHasCamera(true)
+        newOption.label = deviceInfo.label || `camera ${videoSelect.length + 1}`;
+        setVideoInputOptions(arr => [...arr, newOption])
+        if (!videoSource) {
+          setVideoSource(newOption.id)
+        }
+      } else {
+        console.log('Some other kind of source/device: ', deviceInfo);
+      }
+    }
+  }
+
   return <main>
     <div className={styles.chatContainer}>
 
@@ -421,6 +590,22 @@ export default function VideoCall() {
             </p>
             <button onClick={e => setPoliteOffer(prev => !prev)}>Toggle Polite</button>
           </div>
+          <select value={audioInputSource} onChange={e => { setAudioInputSource(e.target.value); changeIOSource() }}>
+            {audioInputOptions.map((value, index) => {
+              return <option value={value.id} key={index}>
+                {value.label}
+              </option>
+            })}
+
+          </select>
+          <select value={videoSource} onChange={e => { setVideoSource(e.target.value); changeIOSource() }}>
+            {videoInputOptions.map((value, index) => {
+              return <option value={value.id} key={index}>
+                {value.label}
+              </option>
+
+            })}
+          </select>
         </div>
       </div>
     </div>
