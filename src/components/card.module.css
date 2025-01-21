@@ -26,6 +26,12 @@
   background-color: peachpuff;
 }
 
+.name {
+  font-size: 12px;
+  margin-bottom: 1em;
+  text-align: left;
+}
+
 .avatar {
   margin-right: 0.75rem;
   min-width: 60px;

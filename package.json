@@ -16,6 +16,7 @@
     "react-transition-group": "^4.4.5",
     "socket.io-client": "^4.7.2",
     "supports-color": "^9.4.0",
+    "universal-cookie": "^7.1.4",
     "utf-8-validate": "^5.0.10"
   }
 }

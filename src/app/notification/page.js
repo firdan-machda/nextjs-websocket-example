@@ -1,13 +1,17 @@
 'use client'
 import { useEffect, useState } from "react"
+import Cookies from "universal-cookie"
 import styles from './page.module.css'
+import { login } from "@/authService"
+import LoginForm from "@/components/login-form"
 
 export default function NotificationPage() {
+  const cookies = new Cookies()
   const [token, setToken] = useState(null)
   const [errorMessage, setErrorMessage] = useState("")
   const [isLogin, setIsLogin] = useState(token !== null)
-  const [vapidPublicKey, setVapidPublicKey] = useState("")
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false)
+  const [notificationEnabled, setNotificationEnabled] = useState(false)
   const [status, setStatus] = useState("standby")
 
   // https://www.digitalocean.com/community/tutorials/how-to-send-web-push-notifications-from-django-applications
@@ -50,7 +54,7 @@ export default function NotificationPage() {
     }
 
     // need to query for vapid public key
-    const key = vapidPublicKey
+    const key = process.env.NEXT_PUBLIC_VAPID_KEY
     const options = {
       userVisibleOnly: true,
       // if key exists, create applicationServerKey property
@@ -86,12 +90,13 @@ export default function NotificationPage() {
       }),
       headers: {
         'content-type': 'application/json',
-        'authorization': `JWT ${token}`,
+        'authorization': cookies.get("jwt-token", false) ? `JWT ${cookies.get("jwt-token")}`: "",
       },
     }).then(res => res.json())
       .then(result =>  { 
         console.log(result) 
         setStatus("subscribed")
+        setNotificationEnabled(true)
       });
 
   };
@@ -103,84 +108,24 @@ export default function NotificationPage() {
     formData.forEach((value, key) => { formDataObj[key] = value });
     const { username, password } = formDataObj
 
-    const query = `
-    mutation login($username: String!, $password: String!) {
-      tokenAuth(username: $username, password: $password) {
-        payload
-        token
-      }
-    }`
-
-    fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: query,
-        variables: {
-          username, password
-        }
-      }),
-      headers: {
-        'content-type': 'application/json',
-      },
-
-    }).then((result) => {
-      console.log(result)
-      return result.json()
-    }).then((result) => {
-      if (result.data.tokenAuth){
-        const { token, payload } = result.data.tokenAuth
-        setToken(token)
-      }else {
-        alert("Failed to login, wrong username or password")
-      }
-    });
-  }
-
-  const getVapidPublicKey = () => {
-    const query = `
-    query {
-      vapidPublicKey
-    }`
-
-    fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: query,
-      }),
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `JWT ${token}`,
-      },
-
-    }).then((result) => {
-      return result.json()
-    }).then((result) => {
-      setVapidPublicKey(result.data.vapidPublicKey)
+    login(username, password).then((result) => {
+      const { token, payload } = result.data.tokenAuth
+      cookies.set("jwt-token", token)
       setServiceWorkerReady(true)
+      setIsLogin(true)
     });
   }
 
   const logout = async () => {
     setToken(null)
+    cookies.remove("jwt-token")
     // https://stackoverflow.com/a/33705250
     if ('serviceWorker' in navigator) {
       const serviceWorker = await navigator.serviceWorker.ready
       const subscription = await serviceWorker.pushManager.getSubscription()
-      if (!subscription) {
-        const success = await subscription.unsubscribe()
-        if (!success) {
-          setErrorMessage("Failed to unsubscribe")
-        }
-      }
-      // TODO: Instead of making service worker redundant, try to update it to latest state
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (const registration of registrations) {
-          if (registration.active.state !== "redundant") {
-            registration.unregister();
-          }
-        }
-      });
-      setVapidPublicKey("")
+      const success = await subscription.unsubscribe()
+      setStatus("standby")
+      setNotificationEnabled(false)
       setServiceWorkerReady(false)
     }
 
@@ -215,17 +160,8 @@ export default function NotificationPage() {
     }).then((result) => {
       return result.json()
     }).then((result) => {
-      console.log(result)
-      if (result.errors) {
-        result.errors.forEach((error) => {
-          console.log(error)
-        })
-        return
-      } 
-      
-      if (result.data?.sendNotification.status !== 200) {
+      if (result.data.sendNotification.status !== 200) {
         setErrorMessage("Failed to send notification")
-        return
       }
     });
   }
@@ -246,26 +182,18 @@ export default function NotificationPage() {
   }, [serviceWorkerReady])
 
   useEffect(() => {
-    setIsLogin(token !== null)
-    if (token !== null) {
+    if (isLogin) {
       getVapidPublicKey()
     }
-  }, [token])
+  }, [isLogin])
 
   return <div>
     <div className={styles.loginFormContainer}>
       <h2>Login & Subscribe for Notification</h2>
       <p>Login using username and password created from the server to request VAPID Public Key</p>
       <p>Status: {status}</p>
-      <form onSubmit={handleLogin} className={styles.loginForm} disabled={isLogin}>
-        <label htmlFor="username">Username</label>
-        <input type="text" name="username" id="username"></input>
-        <label htmlFor="password">Password</label>
-        <input type="password" name="password" id="password"></input>
-        <button type="submit" value="Submit" disabled={isLogin}>
-          Login
-        </button>
-      </form>
+      <p>Notification Ready Status: {notificationEnabled.toString()}</p>
+      <LoginForm disabled={isLogin} onSubmit={handleLogin}/>
       <button disabled={!isLogin} onClick={logout}>
         Logout
       </button>

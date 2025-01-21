@@ -30,7 +30,7 @@ export default function Home() {
 
   function establishWebsocket() {
     if (typeof window !== "undefined") {
-      const ws = new WebSocket("ws://localhost:8000/ws/chat/test/")
+      const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WEBSOCKET_HOST}/ws/chat/test/`)
       ws.onmessage = (e) => {
         console.log("WS", e.data)
         const parsed = JSON.parse(e.data)
