@@ -51,6 +51,8 @@ export default function VideoCall() {
   const [audioOutputSource, setAudioOutputSource] = useState(undefined)
   const [videoSource, setVideoSource] = useState(undefined)
 
+  const [answerPending, setAnswerPending] = useState(false)
+
   const [audioOutputOptions, setAudioOutputOptions] = useState([])
   const [audioInputOptions, setAudioInputOptions] = useState([])
   const [videoInputOptions, setVideoInputOptions] = useState([])
@@ -322,14 +324,22 @@ export default function VideoCall() {
 
   const signalingDataHandler = async (data) => {
     if (data.type === "offer" || data.type === "answer") {
-      const offerCollision = (data.type === "offer" && (sendingOffer || rtcPeerConnectionRef.current.signalingState !== "stable"))
+      const pc = rtcPeerConnectionRef.current
+      const isStable = (pc.signallingState == 'stable' ||
+        (pc.signallingState == 'have-local-offer' && answerPending)
+      )
+      const offerCollision = (data.type === "offer" && (sendingOffer || !isStable))
       const ignore = (!politeOffer && offerCollision)
+
+
       setIgnoreOffer(ignore)
       if (ignore) {
         console.debug("ignoring offer")
         return
       }
+      setAnswerPending(data.type === "answer")
       await rtcPeerConnectionRef.current.setRemoteDescription(data);
+      setAnswerPending(false)
       if (data.type === "offer") {
         await rtcPeerConnectionRef.current.setLocalDescription()
         console.debug("sending offer", rtcPeerConnectionRef.current.localDescription)
@@ -341,8 +351,10 @@ export default function VideoCall() {
       rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
+        console.log("received ICE candidate")
         rtcPeerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
       } catch (err) {
+        console.error("candidate error", err)
         if (!ignoreOffer) {
           throw err;
         }
@@ -369,6 +381,7 @@ export default function VideoCall() {
   }
 
   function onIceConnectionStateChange() {
+    console.log("ICE State change", rtcPeerConnectionRef.current.iceConnectionState)
     if (rtcPeerConnectionRef.iceConnectionState === "failed") {
       rtcPeerConnectionRef.restartIce()
     }
