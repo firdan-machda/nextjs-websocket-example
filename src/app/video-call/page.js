@@ -514,6 +514,29 @@ export default function VideoCall() {
     }
   }
 
+
+  // Attach audio output device to video element using device/sink ID.
+  function attachSinkId(targetSinkId) {
+    const sinkId = targetSinkId 
+    if (typeof remoteVideoRef.current.sinkId !== 'undefined') {
+      remoteVideoRef.current.setSinkId(sinkId)
+        .then(() => {
+          console.log(`Success, audio output device attached: ${sinkId}`);
+          // change selected output after success
+          setAudioOutputSource(sinkId)
+        })
+        .catch(error => {
+          let errorMessage = error;
+          if (error.name === 'SecurityError') {
+            errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`;
+          }
+          console.error(errorMessage);
+        });
+    } else {
+      console.warn('Browser does not support output device selection.');
+    }
+  }
+
   async function getDevices() {
     await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     navigator.mediaDevices.enumerateDevices().then(gotDevices).catch(e => console.error(e));
@@ -617,6 +640,13 @@ export default function VideoCall() {
                 {value.label}
               </option>
 
+            })}
+          </select>
+          <select value={audioOutputSource} onChange={e => { attachSinkId(e.target.value)}}>
+            {audioOutputOptions.map((value, index) => {
+              return <option value={value.id} key={index}>
+                {value.label}
+              </option>
             })}
           </select>
         </div>
