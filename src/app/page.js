@@ -71,12 +71,12 @@ export default function Home() {
 
     return () => {
       // Cleanup on unmount if ws wasn't closed already
-      if (wsInstance?.readyState !== 3) {
+      if (wsInstance && wsInstance?.readyState !== 3) {
         console.log('call cleanup')
         wsInstance.close()
       }
     }
-  }, [])
+  }, [wsInstance])
 
   function submit() {
     console.log(wsInstance)

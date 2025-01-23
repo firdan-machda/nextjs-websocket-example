@@ -1,0 +1,35 @@
+.sidebar {
+  width: 15%;
+  text-align: center;
+  border-right: 1px solid white;
+}
+
+.chatRoom {
+  width: 85%;
+  height: 90vh;
+  text-align: center;
+}
+
+.chatContainer {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+}
+
+.videoContainer {
+  display: flex;
+  flex-direction: row;
+
+  .video {
+    border: 1px solid white;
+    width: 100%;
+  }
+}
+
+.videoController {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 1em;
+}
