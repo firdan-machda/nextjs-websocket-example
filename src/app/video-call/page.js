@@ -79,7 +79,9 @@ export default function VideoCall() {
     }
   }, [chatReady, chatRestart])
 
+
   useEffect(() => {
+    console.info("roomID: ", roomID)
     if (roomID !== "") {
       setChatReady(true)
     } else {
@@ -105,6 +107,7 @@ export default function VideoCall() {
         getDevices()
       }
     }
+
   }, [])
 
   function sendData(data) {
@@ -124,6 +127,7 @@ export default function VideoCall() {
       setIsLogin(true)
     });
   }
+
   async function handleLogout(e) {
     e.preventDefault()
     logout();
@@ -131,8 +135,6 @@ export default function VideoCall() {
     setRoomID("");
     setChatrooms([]);
   }
-
-
 
   function establishWebsocket() {
     if (typeof window !== "undefined") {
@@ -199,8 +201,8 @@ export default function VideoCall() {
       websocketRef.current = ws
       // setLoading(false)
     }
-
   }
+
   function startConnection() {
     const audioSource = audioInputSource || undefined
     const videoInputSource = videoSource || undefined
@@ -280,6 +282,7 @@ export default function VideoCall() {
       }
       setOpenMic(audioInputSource)
     }
+
     if (changes == "video") {
       const videoTrack = stream.getVideoTracks()[0]
       for (const videoTrack of localVideoRef.current.srcObject.getVideoTracks()) {
@@ -449,6 +452,7 @@ export default function VideoCall() {
       }
     }
   };
+
   function handleJoinChatroom(e) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -470,8 +474,10 @@ export default function VideoCall() {
       setChatrooms(arr => [...arr, chatroomId])
     })
   }
+
   function connectChatroom(e) {
     e.preventDefault()
+    console.info('try to connect to chatroom', e.target.value)
     if (roomID !== "") {
       // kill wsinstance
       if (websocketRef.current && websocketRef.current.readyState <= 1) {
@@ -481,9 +487,9 @@ export default function VideoCall() {
       }
       setMessages([])
     }
-    console.debug(e.target.value)
     setRoomID(e.target.value)
   }
+
   async function toggleMic(on) {
     console.debug("Toggling mic", on)
     if (on) {
@@ -505,9 +511,11 @@ export default function VideoCall() {
         audioTrack.stop()
       }
     }
-
   }
+
   function toggleVideo() {
+    console.log(localVideoRef.current.srcObject)
+    console.log(localVideoRef.current.srcObject)
     for (const mediaTrack of localVideoRef.current.srcObject.getVideoTracks()) {
       mediaTrack.enabled = !mediaTrack.enabled
       console.debug("toggling", mediaTrack)
@@ -517,7 +525,7 @@ export default function VideoCall() {
 
   // Attach audio output device to video element using device/sink ID.
   function attachSinkId(targetSinkId) {
-    const sinkId = targetSinkId 
+    const sinkId = targetSinkId
     if (typeof remoteVideoRef.current.sinkId !== 'undefined') {
       remoteVideoRef.current.setSinkId(sinkId)
         .then(() => {
@@ -611,9 +619,11 @@ export default function VideoCall() {
       <div className={styles.chatRoom}>
         <div className={styles.videoContainer}>
           <div className={styles.video}>
+            <h2>Local Video</h2>
             <video autoPlay muted playsInline ref={localVideoRef} />
           </div>
           <div className={styles.video}>
+            <h2>Remote Video</h2>
             <video autoPlay playsInline ref={remoteVideoRef} />
           </div>
         </div>
@@ -639,10 +649,9 @@ export default function VideoCall() {
               return <option value={value.id} key={index}>
                 {value.label}
               </option>
-
             })}
           </select>
-          <select value={audioOutputSource} onChange={e => { attachSinkId(e.target.value)}}>
+          <select value={audioOutputSource} onChange={e => { attachSinkId(e.target.value) }}>
             {audioOutputOptions.map((value, index) => {
               return <option value={value.id} key={index}>
                 {value.label}
