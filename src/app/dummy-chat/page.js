@@ -12,12 +12,16 @@ import {
 let socket;
 
 export default function Home() {
+  const MAX_TRIES = 3
   const [wsInstance, setWsInstance] = useState(null);
   const [messages, setMessages] = useState([])
   const [text, setText] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [choices, setChoices] = useState([])
+  
+  const [tryReconnectCount, setTryReconnectCount] = useState(0)
+
   const [delay, setDelay] = useState(0)
 
   useEffect(() => {
@@ -66,7 +70,10 @@ export default function Home() {
     console.log('call ws')
 
     setLoading(true)
-    establishWebsocket()
+    if (tryReconnectCount < MAX_TRIES && wsInstance == null){
+      establishWebsocket()
+      setTryReconnectCount(x=> x + 1)
+    }
 
 
     return () => {
