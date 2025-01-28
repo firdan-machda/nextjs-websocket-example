@@ -618,6 +618,7 @@ export default function VideoCall() {
         <button onClick={handleCreateChatroom} disabled={false}>
           Create new chatroom
         </button>
+        <br/>
         <button onClick={handleCopyRoomID} disabled={roomID === ""}>
           Copy RoomID
         </button>
