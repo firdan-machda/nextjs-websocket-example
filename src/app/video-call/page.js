@@ -589,6 +589,10 @@ export default function VideoCall() {
     }
   }
 
+  function handleCopyRoomID() {
+    navigator.clipboard.writeText(roomID)
+  }
+
   return <main>
     <div className={styles.chatContainer}>
 
@@ -611,9 +615,11 @@ export default function VideoCall() {
             Join chatroom
           </button>
         </form>
-
         <button onClick={handleCreateChatroom} disabled={false}>
           Create new chatroom
+        </button>
+        <button onClick={handleCopyRoomID} disabled={roomID === ""}>
+          Copy RoomID
         </button>
       </div>
       <div className={styles.chatRoom}>
