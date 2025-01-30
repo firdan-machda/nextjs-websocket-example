@@ -57,8 +57,10 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
     console.debug(formDataObj)
     joinVideoChatroom(formDataObj["joinChatroomId"]).then((result) => {
       console.debug(result)
-      const { chatroomId } = result
-      setChatrooms(arr => [...arr, chatroomId])
+      if (result){
+        const { chatroomId } = result
+        setChatrooms(arr => [...arr, chatroomId])
+      }
     })
   }
 
