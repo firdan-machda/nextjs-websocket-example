@@ -1,11 +1,9 @@
 'use client'
-import LoginForm from "@/components/login-form";
+
 import { useState, useEffect, useRef } from "react";
 import styles from "./page.module.css"
-import { login, logout } from "@/authService";
 import Cookies from "universal-cookie";
-import { joinVideoChatroom, getChatroom } from "@/chatroomService";
-
+import Sidebar from "./sidebar"
 
 export default function VideoCall() {
   const configuration = {
@@ -35,18 +33,16 @@ export default function VideoCall() {
   const websocketRef = useRef(null)
   const rtcPeerConnectionRef = useRef(null)
   const sendChannelRef = useRef(null)
+
   const [isLogin, setIsLogin] = useState(false)
   const [roomID, setRoomID] = useState("")
   const [chatReady, setChatReady] = useState(false)
-  const [chatrooms, setChatrooms] = useState(["asdf"])
+  
   const [chatRestart, setChatRestart] = useState(false)
-  const [messages, setMessages] = useState([])
-  const [loading, setLoading] = useState(true)
   const [micAudio, setMicAudio] = useState(true)
   const [sendingOffer, setSendingOffer] = useState(false)
   const [ignoreOffer, setIgnoreOffer] = useState(false)
   const [politeOffer, setPoliteOffer] = useState(true)
-  const [isScreenShare, setIsScreenShare] = useState(false)
   const [audioInputSource, setAudioInputSource] = useState(undefined)
   const [audioOutputSource, setAudioOutputSource] = useState(undefined)
   const [videoSource, setVideoSource] = useState(undefined)
@@ -92,13 +88,6 @@ export default function VideoCall() {
   }, [roomID])
 
   useEffect(() => {
-    getChatroom().then((result) => {
-      setChatrooms(result)
-    })
-
-  }, [isLogin])
-
-  useEffect(() => {
     const haveCookie = cookies.get("jwt-token") !== undefined
     setIsLogin(haveCookie)
     if (navigator.mediaDevices) {
@@ -114,28 +103,6 @@ export default function VideoCall() {
     websocketRef.current.send(JSON.stringify(data))
   }
 
-  const handleLogin = (e) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const formDataObj = {}
-    formData.forEach((value, key) => { formDataObj[key] = value });
-    const { username, password } = formDataObj
-
-    login(username, password).then((result) => {
-      // const { token, payload } = result.data.tokenAuth
-      // cookies.set("jwt-token", token)
-      setIsLogin(true)
-    });
-  }
-
-  async function handleLogout(e) {
-    e.preventDefault()
-    logout();
-    setIsLogin(false);
-    setRoomID("");
-    setChatrooms([]);
-  }
-
   function establishWebsocket() {
     if (typeof window !== "undefined") {
       const ws = new WebSocket(
@@ -144,6 +111,7 @@ export default function VideoCall() {
       ws.onmessage = (e) => {
         console.log("WS", e.data)
         const parsed = JSON.parse(e.data)
+
         switch (parsed.type) {
           case "init-handshake":
             createPeerConnection()
@@ -166,38 +134,20 @@ export default function VideoCall() {
             })
 
             break
-          case "system":
-            if (parsed.message == "loading") {
-              setLoading(true)
-            } else if (parsed.message == "finished-loading") {
-              setLoading(false)
-            }
-            break;
-          case "action":
-            setChoices(parsed.choices)
-            break
-          case "init-handshake":
-            // sendECDHKey()
-            break
-          case "handshake":
-            handleHandshake(parsed)
-            break
-          case "message":
-            handleMessage(parsed)
-            break
           default:
-            setMessages(arr => [...arr, parsed])
+            console.warn("Unknown message type", parsed)
             break;
-
         }
       }
-      ws.onopen = (e) => {
-        console.log("Connected")
 
+      ws.onopen = (e) => {
+        console.info("Connected")
       }
+
       ws.onclose = (e) => {
-        console.log('Disconnected')
+        console.info('Disconnected')
       }
+
       websocketRef.current = ws
       // setLoading(false)
     }
@@ -402,6 +352,7 @@ export default function VideoCall() {
   }
 
   const createPeerConnection = () => {
+    console.info('attempting to create peer connection')
     try {
       rtcPeerConnectionRef.current = new RTCPeerConnection(configuration);
       sendChannelRef.current = rtcPeerConnectionRef.current.createDataChannel("chat", { negotiated: true, id: 0 })
@@ -422,6 +373,7 @@ export default function VideoCall() {
       console.error("PeerConnection failed: ", error);
     }
   };
+
   const onIceCandidate = (event) => {
     if (event.candidate) {
       console.log("Sending ICE candidate");
@@ -452,43 +404,6 @@ export default function VideoCall() {
       }
     }
   };
-
-  function handleJoinChatroom(e) {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const formDataObj = {}
-    formData.forEach((value, key) => { formDataObj[key] = value });
-    console.debug(formDataObj)
-    joinVideoChatroom(formDataObj["joinChatroomId"]).then((result) => {
-      console.debug(result)
-      const { chatroomId } = result
-      setChatrooms(arr => [...arr, chatroomId])
-    })
-  }
-
-  function handleCreateChatroom(e) {
-    e.preventDefault()
-    joinVideoChatroom().then((result) => {
-      console.debug(result)
-      const { chatroomId } = result
-      setChatrooms(arr => [...arr, chatroomId])
-    })
-  }
-
-  function connectChatroom(e) {
-    e.preventDefault()
-    console.info('try to connect to chatroom', e.target.value)
-    if (roomID !== "") {
-      // kill wsinstance
-      if (websocketRef.current && websocketRef.current.readyState <= 1) {
-        websocketRef.current.close()
-        rtcPeerConnectionRef.current?.close()
-        setChatRestart(true)
-      }
-      setMessages([])
-    }
-    setRoomID(e.target.value)
-  }
 
   async function toggleMic(on) {
     console.debug("Toggling mic", on)
@@ -589,40 +504,9 @@ export default function VideoCall() {
     }
   }
 
-  function handleCopyRoomID() {
-    navigator.clipboard.writeText(roomID)
-  }
-
-  return <main>
-    <div className={styles.chatContainer}>
-
-      <div className={styles.sidebar}>
-        Sidebar
-        <LoginForm disabled={isLogin} onSubmit={handleLogin} />
-        <button disabled={!isLogin} onClick={handleLogout}>Logout</button>
-        <div>
-          Chatrooms
-          <ul>
-            {chatrooms.map((value, index) => {
-              return <li key={index}><button value={value} onClick={connectChatroom} key={value}>{value}</button></li>
-            })}
-          </ul>
-        </div>
-        <form onSubmit={handleJoinChatroom} disabled={!isLogin}>
-          <label htmlFor="joinChatroomId">Chatroom ID</label>
-          <input type="text" name="joinChatroomId" id="joinChatroomId"></input>
-          <button type="submit" value="submit" disabled={!isLogin}>
-            Join chatroom
-          </button>
-        </form>
-        <button onClick={handleCreateChatroom} disabled={false}>
-          Create new chatroom
-        </button>
-        <br/>
-        <button onClick={handleCopyRoomID} disabled={roomID === ""}>
-          Copy RoomID
-        </button>
-      </div>
+  return <main style={{ display: "flex" }}>
+    <Sidebar setIsLogin={setIsLogin} isLogin={isLogin} websocketRef={websocketRef} chatReady={chatReady} setRootRoomID={setRoomID}/>
+    <div className={styles.chatContainer}>    
       <div className={styles.chatRoom}>
         <div className={styles.videoContainer}>
           <div className={styles.video}>
