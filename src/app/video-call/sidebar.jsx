@@ -9,6 +9,7 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
+  const [username, setUsername] = useState("")
 
   const handleLogin = (e) => {
     e.preventDefault()
@@ -18,6 +19,8 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
     const { username, password } = formDataObj
 
     login(username, password).then((result) => {
+      console.log(result)
+      setUsername(result.payload.username)
       // const { token, payload } = result.data.tokenAuth
       // cookies.set("jwt-token", token)
       setIsLogin(true)
@@ -85,7 +88,7 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
   }, [roomID])
 
   return <div className={styles.sidebar}>
-    Sidebar
+    <h3>{username ? `Hello, ${username}` :"Sidebar"}</h3>
     <LoginForm disabled={isLogin} onSubmit={handleLogin} />
     <button disabled={!isLogin} onClick={handleLogout}>Logout</button>
     <div>
