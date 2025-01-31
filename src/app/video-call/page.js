@@ -303,17 +303,41 @@ export default function VideoCall() {
     //     console.debug("sending offer", pc.localDescription)
     //     sendData({ type: "offer", data: pc.localDescription })
     //   }
-    if (data.type === 'offer'){
-      if (pc.signalingState !== 'stable') {
-        console.error('Cannot set remote offer in state:', pc.signalingState);
-        return;
+    if (data.type === "offer" || data.type === "answer") {
+
+      const isStable = (pc.signallingState == 'stable' ||
+        (pc.signallingState == 'have-local-offer' && answerPending)
+      )
+      const offerCollision = (data.type === "offer" && (sendingOffer || !isStable))
+      const ignore = (!politeOffer && offerCollision)
+
+
+      setIgnoreOffer(ignore)
+      if (ignore) {
+        console.debug("ignoring offer")
+        return
       }
-      await pc.setRemoteDescription(new RTCSessionDescription({type: data.type, sdp: data.sdp}));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      sendData({type: 'answer', sdp: answer.sdp})
-      processCandidateQueue()
+      setAnswerPending(data.type === "answer")
+      await pc.setRemoteDescription(new RTCSessionDescription(data));
+      setAnswerPending(false)
+      
+      if (data.type === "offer") {
+        await pc.setLocalDescription()
+        console.debug("sending offer", pc.localDescription)
+        sendData({ type: "offer", data: pc.localDescription })
+      }
     }
+    // if (data.type === 'offer'){
+    //   if (pc.signalingState !== 'stable') {
+    //     console.error('Cannot set remote offer in state:', pc.signalingState);
+    //     return;
+    //   }
+    //   await pc.setRemoteDescription(new RTCSessionDescription({type: data.type, sdp: data.sdp}));
+    //   const answer = await pc.createAnswer();
+    //   await pc.setLocalDescription(answer);
+    //   sendData({type: 'answer', sdp: answer.sdp})
+    //   processCandidateQueue()
+    // }
     else if (data.type === "answer") {
       console.debug("Received answer", data)
 
