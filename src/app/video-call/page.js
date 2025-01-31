@@ -277,36 +277,53 @@ export default function VideoCall() {
 
   const signalingDataHandler = async (data) => {
     console.log("Signaling data received", data);
-    if (data.type === "offer" || data.type === "answer") {
-      const pc = rtcPeerConnectionRef.current
-      const isStable = (pc.signallingState == 'stable' ||
-        (pc.signallingState == 'have-local-offer' && answerPending)
-      )
-      const offerCollision = (data.type === "offer" && (sendingOffer || !isStable))
-      const ignore = (!politeOffer && offerCollision)
+    const pc = rtcPeerConnectionRef.current
+
+    // if (data.type === "offer" || data.type === "answer") {
+
+    //   const isStable = (pc.signallingState == 'stable' ||
+    //     (pc.signallingState == 'have-local-offer' && answerPending)
+    //   )
+    //   const offerCollision = (data.type === "offer" && (sendingOffer || !isStable))
+    //   const ignore = (!politeOffer && offerCollision)
 
 
-      setIgnoreOffer(ignore)
-      if (ignore) {
-        console.debug("ignoring offer")
-        return
+    //   setIgnoreOffer(ignore)
+    //   if (ignore) {
+    //     console.debug("ignoring offer")
+    //     return
+    //   }
+    //   setAnswerPending(data.type === "answer")
+    //   await pc.setRemoteDescription(data);
+    //   setAnswerPending(false)
+      
+    //   if (data.type === "offer") {
+    //     await pc.setLocalDescription()
+    //     console.debug("sending offer", pc.localDescription)
+    //     sendData({ type: "offer", data: pc.localDescription })
+    //   }
+    if (data.type === 'offer'){
+      if (pc.signalingState !== 'stable') {
+        console.error('Cannot set remote offer in state:', pc.signalingState);
+        return;
       }
-      setAnswerPending(data.type === "answer")
-      await rtcPeerConnectionRef.current.setRemoteDescription(data);
-      setAnswerPending(false)
-      if (data.type === "offer") {
-        await rtcPeerConnectionRef.current.setLocalDescription()
-        console.debug("sending offer", rtcPeerConnectionRef.current.localDescription)
-        sendData({ type: "offer", data: rtcPeerConnectionRef.current.localDescription })
-      }
+      await pc.setRemoteDescription(new RTCSessionDescription({type: data.type, sdp: data.sdp}));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      sendData({type:"offer", data: pc.localDescription});
 
     } else if (data.type === "answer") {
       console.debug("Received answer", data)
-      rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data));
+
+      if (pc.signalingState !== "have-local-offer") {
+        console.error('Cannot set remote answer in state:', pc.signalingState)
+        return 
+      }
+      await pc.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
         console.log("received ICE candidate")
-        rtcPeerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
       } catch (err) {
         console.error("candidate error", err)
         if (!ignoreOffer) {
