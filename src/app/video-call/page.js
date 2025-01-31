@@ -317,10 +317,10 @@ export default function VideoCall() {
     else if (data.type === "answer") {
       console.debug("Received answer", data)
 
-      if (pc.signalingState !== "have-local-offer") {
-        console.error('Cannot set remote answer in state:', pc.signalingState)
-        return 
-      }
+      // if (pc.signalingState !== "have-local-offer") {
+      //   console.error('Cannot set remote answer in state:', pc.signalingState)
+      //   return 
+      // }
       await pc.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
