@@ -322,7 +322,7 @@ export default function VideoCall() {
       await pc.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
-        console.log("received ICE candidate")
+        console.log("received ICE candidate", data)
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
       } catch (err) {
         console.error("candidate error", err)
