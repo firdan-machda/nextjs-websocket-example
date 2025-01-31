@@ -310,7 +310,7 @@ export default function VideoCall() {
       await pc.setRemoteDescription(new RTCSessionDescription({type: data.type, sdp: data.sdp}));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      sendData({type:"offer", data: pc.localDescription});
+      sendData({type: 'answer', sdp: answer.sdp})
 
     } else if (data.type === "answer") {
       console.debug("Received answer", data)
