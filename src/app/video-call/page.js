@@ -49,6 +49,7 @@ export default function VideoCall() {
 
   const [answerPending, setAnswerPending] = useState(false)
 
+  const [candidateQueue, setCandidateQueue] = useState([])
   const [audioOutputOptions, setAudioOutputOptions] = useState([])
   const [audioInputOptions, setAudioInputOptions] = useState([])
   const [videoInputOptions, setVideoInputOptions] = useState([])
@@ -311,6 +312,7 @@ export default function VideoCall() {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       sendData({type: 'answer', sdp: answer.sdp})
+      processCandidateQueue()
     }
     else if (data.type === "answer") {
       console.debug("Received answer", data)
@@ -322,8 +324,13 @@ export default function VideoCall() {
       await pc.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
-        console.log("received ICE candidate", data)
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        if(pc.remoteDescription){
+          console.log("received ICE candidate", data)
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } else {
+          console.log("ICE candidate queueing", data.candidate)
+          setCandidateQueue(arr => [...arr, data.candidate])
+        }
       } catch (err) {
         console.error("candidate error", err)
         if (!ignoreOffer) {
@@ -334,6 +341,15 @@ export default function VideoCall() {
       console.log("Unknown Data");
     }
   };
+
+  async function processCandidateQueue(){
+    console.debug("Processing candidate queue")
+    let pc = rtcPeerConnectionRef.current
+    for (const candidate of candidateQueue) {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate))
+    }
+    setCandidateQueue([])
+  }
 
   async function onNegotiationNeeded() {
     try {
