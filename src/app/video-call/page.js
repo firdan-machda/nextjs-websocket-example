@@ -276,6 +276,7 @@ export default function VideoCall() {
   };
 
   const signalingDataHandler = async (data) => {
+    console.log("Signaling data received", data);
     if (data.type === "offer" || data.type === "answer") {
       const pc = rtcPeerConnectionRef.current
       const isStable = (pc.signallingState == 'stable' ||

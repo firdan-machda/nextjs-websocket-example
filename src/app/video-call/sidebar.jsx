@@ -5,7 +5,7 @@ import { login, logout } from "@/authService";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
 
-export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, setRootRoomID }) {
+export default function Sidebar({ setIsLogin, isLogin, chatReady, websocketRef, setRootRoomID }) {
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
@@ -57,10 +57,12 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
     console.debug(formDataObj)
     joinVideoChatroom(formDataObj["joinChatroomId"]).then((result) => {
       console.debug(result)
-      if (result){
+      if (result) {
         const { chatroomId } = result
         setChatrooms(arr => [...arr, chatroomId])
       }
+    }).catch((error) => {
+      console.error(error)
     })
   }
 
@@ -78,9 +80,9 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
   }
 
   useEffect(() => {
-      getChatroom().then((result) => {
-        setChatrooms(result)
-      })
+    getChatroom().then((result) => {
+      setChatrooms(result)
+    })
 
   }, [isLogin])
 
@@ -90,7 +92,7 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
   }, [roomID])
 
   return <div className={styles.sidebar}>
-    <h3>{username ? `Hello, ${username}` :"Sidebar"}</h3>
+    <h3>{username ? `Hello, ${username}` : "Sidebar"}</h3>
     <LoginForm disabled={isLogin} onSubmit={handleLogin} />
     <button disabled={!isLogin} onClick={handleLogout}>Logout</button>
     <div>
@@ -111,13 +113,13 @@ export default function Sidebar({setIsLogin, isLogin, chatReady, websocketRef, s
     <button onClick={handleCreateChatroom} disabled={false}>
       Create new chatroom
     </button>
-    <br/>
+    <br />
     <button onClick={handleCopyRoomID} disabled={roomID === ""}>
       Copy RoomID
     </button>
-    <div style={{marginTop:"20px"}}>
-      <hr/>
-      <p>Chat status : {chatReady ? <span style={{color:"green"}}>Ready</span> : <span style={{color:"red"}}>Not Ready</span>}
+    <div style={{ marginTop: "20px" }}>
+      <hr />
+      <p>Chat status : {chatReady ? <span style={{ color: "green" }}>Ready</span> : <span style={{ color: "red" }}>Not Ready</span>}
       </p>
     </div>
   </div>
