@@ -311,8 +311,8 @@ export default function VideoCall() {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       sendData({type: 'answer', sdp: answer.sdp})
-
-    } else if (data.type === "answer") {
+    }
+    else if (data.type === "answer") {
       console.debug("Received answer", data)
 
       if (pc.signalingState !== "have-local-offer") {

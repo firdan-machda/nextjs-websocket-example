@@ -5,7 +5,10 @@ import { login, logout } from "@/authService";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
 
-export default function Sidebar({ setIsLogin, isLogin, chatReady, websocketRef, setRootRoomID }) {
+export default function Sidebar({ setIsLogin, 
+  isLogin, chatReady, 
+  websocketRef, setRootRoomID, 
+  rtcPeerConnectionRef }) {
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
