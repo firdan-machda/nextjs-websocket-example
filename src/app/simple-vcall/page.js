@@ -143,7 +143,7 @@ const VideoCall = () => {
 
   const sendSignalingMessage = (message) => {
     // Implement your signaling mechanism here (e.g., WebSocket, HTTP)
-    websocketRef.current.send(JSON.stringify(message))
+    websocketRef.current.send(JSON.stringify({type:message.type, data:message}))
   };
 
   return (
