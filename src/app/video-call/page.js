@@ -539,11 +539,14 @@ export default function VideoCall() {
   }
 
   return <main style={{ display: "flex" }}>
-    <Sidebar setIsLogin={setIsLogin} 
+    <Sidebar 
+      setIsLogin={setIsLogin} 
       isLogin={isLogin} 
-      websocketRef={websocketRef} chatReady={chatReady} 
+      websocketRef={websocketRef} 
+      chatReady={chatReady} 
       setRootRoomID={setRoomID}
       rtcPeerConnectionRef={rtcPeerConnectionRef}
+      setChatRestart={setChatRestart}
     />
     <div className={styles.chatContainer}>    
       <div className={styles.chatRoom}>

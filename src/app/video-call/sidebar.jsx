@@ -7,7 +7,7 @@ import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
 export default function Sidebar({ setIsLogin, 
   isLogin, chatReady, 
-  websocketRef, setRootRoomID, 
+  websocketRef, setRootRoomID, setChatRestart,
   rtcPeerConnectionRef }) {
 
   const [roomID, setRoomID] = useState("")
@@ -61,8 +61,8 @@ export default function Sidebar({ setIsLogin,
     joinVideoChatroom(formDataObj["joinChatroomId"]).then((result) => {
       console.debug(result)
       if (result) {
-        const { chatroomId } = result
-        setChatrooms(arr => [...arr, chatroomId])
+        const { chatroomId, alias } = result
+        setChatrooms(arr => [...arr, chatroomId || alias ])
       }
     }).catch((error) => {
       console.error(error)

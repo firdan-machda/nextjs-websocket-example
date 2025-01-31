@@ -70,6 +70,7 @@ export async function joinVideoChatroom(chatroomID = null) {
   mutation joinVideoChatRoom($chatroomId: String){
     joinVideoChatroom(chatroomId: $chatroomId) {
       chatroomId
+      alias
     }
   }`
 
