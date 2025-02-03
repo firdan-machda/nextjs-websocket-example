@@ -18,7 +18,11 @@ const VideoCall = () => {
   useEffect(() => {
     const configuration = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { urls: "stun.l.google.com:19302" },
+        { urls: "stun1.l.google.com:19302" },
+        { urls: "stun2.l.google.com:19302" },
+        { urls: "stun3.l.google.com:19302" },
+        { urls: "stun4.l.google.com:19302" },
       ]
     };
 
@@ -62,27 +66,12 @@ const VideoCall = () => {
         const parsed = JSON.parse(e.data)
 
         switch (parsed.type) {
-          // case "init-handshake":
-          //   createPeerConnection()
-          //   break
+
           case "user-offer":
           case "user-candidate":
             handleSignalingMessage(parsed.data)
             break
-          // case "user-disconnect":
-          //   console.debug("Closing Peer connection")
-          //   setSendingOffer(false)
-          //   setIgnoreOffer(false)
-          //   rtcPeerConnectionRef.current.close()
-          //   rtcPeerConnectionRef.current = null
-          //   sendChannelRef.current.close()
-          //   sendChannelRef.current = null
-          //   remoteVideoRef.current.srcObject?.getTracks().forEach(track => {
-          //     track.stop()
-          //     remoteVideoRef.current.srcObject.removeTrack(track)
-          //   })
 
-          //   break
           default:
             console.warn("Unknown message type", parsed)
             break;
@@ -117,18 +106,23 @@ const VideoCall = () => {
     const { type, sdp, candidate } = message;
 
     if (type === 'offer') {
+      console.log('Received offer', sdp);
       await rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
       const answer = await rtcPeerConnectionRef.current.createAnswer();
       await rtcPeerConnectionRef.current.setLocalDescription(answer);
       sendSignalingMessage({ type: 'answer', sdp: answer.sdp });
       processCandidateQueue();
     } else if (type === 'answer') {
+      console.log('Received answer', sdp);
       await rtcPeerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
       processCandidateQueue();
     } else if (type === 'candidate') {
+      console.log('Received ICE candidate', candidate);
       if (rtcPeerConnectionRef.current.remoteDescription) {
+        console.log('Adding ICE candidate');
         await rtcPeerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } else {
+        console.log('Queueing ICE candidate');
         setCandidateQueue(prevQueue => [...prevQueue, candidate]);
       }
     }
@@ -151,9 +145,11 @@ const VideoCall = () => {
       <Sidebar setRootRoomID={setRoomID}/>
       <div>
         <h1>Video Call</h1>
+        <h2>local</h2>
         <video ref={localVideoRef} autoPlay playsInline muted />
+        <h2>remote</h2>
         <video ref={remoteVideoRef} autoPlay playsInline />
-        <button onClick={startCall}>Start Call</button>
+        {roomID && <button onClick={startCall}>Start Call</button>}
       </div>
     </div>
   );

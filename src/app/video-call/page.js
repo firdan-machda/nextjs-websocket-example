@@ -8,9 +8,12 @@ import Sidebar from "./sidebar"
 export default function VideoCall() {
   const configuration = {
     iceServers: [
-      {
-        urls: "stun:openrelay.metered.ca:80",
-      },
+      { urls: "stun.l.google.com:19302" },
+      { urls: "stun1.l.google.com:19302" },
+      { urls: "stun2.l.google.com:19302" },
+      { urls: "stun3.l.google.com:19302" },
+      { urls: "stun4.l.google.com:19302" },
+      { urls: "stun:openrelay.metered.ca:80"},
       {
         urls: "turn:openrelay.metered.ca:80",
         username: "openrelayproject",
@@ -37,7 +40,7 @@ export default function VideoCall() {
   const [isLogin, setIsLogin] = useState(false)
   const [roomID, setRoomID] = useState("")
   const [chatReady, setChatReady] = useState(false)
-  
+
   const [chatRestart, setChatRestart] = useState(false)
   const [micAudio, setMicAudio] = useState(true)
   const [sendingOffer, setSendingOffer] = useState(false)
@@ -297,7 +300,7 @@ export default function VideoCall() {
     //   setAnswerPending(data.type === "answer")
     //   await pc.setRemoteDescription(data);
     //   setAnswerPending(false)
-      
+
     //   if (data.type === "offer") {
     //     await pc.setLocalDescription()
     //     console.debug("sending offer", pc.localDescription)
@@ -320,7 +323,7 @@ export default function VideoCall() {
       setAnswerPending(data.type === "answer")
       await pc.setRemoteDescription(new RTCSessionDescription(data));
       setAnswerPending(false)
-      
+
       if (data.type === "offer") {
         await pc.setLocalDescription()
         console.debug("sending offer", pc.localDescription)
@@ -348,7 +351,7 @@ export default function VideoCall() {
       await pc.setRemoteDescription(new RTCSessionDescription(data));
     } else if (data.type === "candidate") {
       try {
-        if(pc.remoteDescription){
+        if (pc.remoteDescription) {
           console.log("received ICE candidate", data)
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } else {
@@ -366,7 +369,7 @@ export default function VideoCall() {
     }
   };
 
-  async function processCandidateQueue(){
+  async function processCandidateQueue() {
     console.debug("Processing candidate queue")
     let pc = rtcPeerConnectionRef.current
     for (const candidate of candidateQueue) {
@@ -563,16 +566,16 @@ export default function VideoCall() {
   }
 
   return <main style={{ display: "flex" }}>
-    <Sidebar 
-      setIsLogin={setIsLogin} 
-      isLogin={isLogin} 
-      websocketRef={websocketRef} 
-      chatReady={chatReady} 
+    <Sidebar
+      setIsLogin={setIsLogin}
+      isLogin={isLogin}
+      websocketRef={websocketRef}
+      chatReady={chatReady}
       setRootRoomID={setRoomID}
       rtcPeerConnectionRef={rtcPeerConnectionRef}
       setChatRestart={setChatRestart}
     />
-    <div className={styles.chatContainer}>    
+    <div className={styles.chatContainer}>
       <div className={styles.chatRoom}>
         <div className={styles.videoContainer}>
           <div className={styles.video}>
