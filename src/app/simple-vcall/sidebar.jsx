@@ -99,7 +99,7 @@ export default function Sidebar() {
       <p className="text-red-500 text-sm my-2">
         {error ? "(ಠ_ಠ) "+error : "ᕙ(`▽´)ᕗ"}
       </p>
-      <div className="flex flex-row space-x-4">
+      <div className="flex flex-col sm:flex-row space-x-4">
         <div className="flex-1">
           <form className="max-w-sm mx-auto bg-white dark:bg-gray-700 p-4 rounded-lg shadow" onSubmit={handleCreateSession}>
             <div className="mb-4">

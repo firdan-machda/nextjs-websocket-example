@@ -141,7 +141,7 @@ const VideoCall = () => {
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col sm:flex-row items-center">
       <div className="w-full max-w-4xl p-4">
         <h1 className="text-2xl font-bold mb-4">Video Call</h1>
         <div className="flex flex-row space-x-4">
