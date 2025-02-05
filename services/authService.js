@@ -24,7 +24,7 @@ export async function login(username, password) {
   const resJson = await res.json()
   const data = resJson.data.tokenAuth
   const { token } = data
-  cookies.set("jwt-token", token, {path: "/"})
+  cookies.set("jwt-token", token, { path: "/" })
   return data
 }
 export function logout() {

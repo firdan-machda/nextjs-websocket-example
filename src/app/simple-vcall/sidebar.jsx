@@ -4,127 +4,171 @@ import { login, logout } from "@/authService";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
 
-export default function Sidebar({ 
-  chatReady, 
-  websocketRef, 
-  setRootRoomID, 
-  setChatRestart,
-  rtcPeerConnectionRef }) {
+export default function Sidebar() {
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
   const [username, setUsername] = useState("")
-  const [isLogin, setIsLogin] = useState(false)
+  const [error, setError] = useState("")
 
-  const handleLogin = (e) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const formDataObj = {}
-    formData.forEach((value, key) => { formDataObj[key] = value });
-    const { username, password } = formDataObj
-
-    login(username, password).then((result) => {
-      console.log(result)
-      setUsername(result.payload.username)
-      // const { token, payload } = result.data.tokenAuth
-      // cookies.set("jwt-token", token)
-      setIsLogin(true)
-    });
-  }
-
-  async function handleLogout(e) {
-    e.preventDefault()
-    logout();
-    setIsLogin(false);
-    setRoomID("");
-    setChatrooms([]);
-  }
-
-  function connectChatroom(e) {
-    e.preventDefault()
-    console.info('try to connect to chatroom', e.target.value)
-    if (roomID !== "") {
-      // kill wsinstance
-      if (websocketRef.current && websocketRef.current.readyState <= 1) {
-        websocketRef.current.close()
-        setChatRestart(true)
+  async function postCreateSessionID(chatroomId, username) {
+    const query = `
+    mutation createVideoRoom($chatroomId: String!, $username: String!) {
+      createVideoRoom(chatroomId: $chatroomId, username: $username) {
+        chatroomId
+        alias
       }
+    }`
+  
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        query: query,
+        variables: {
+          chatroomId, username
+        }
+      }),
+      headers: {
+        'content-type': 'application/json',
+      },
+    })
+    const resJson = await res.json()
+    const data = resJson.data.createVideoRoom
+    if (!chatrooms.includes(data.chatroomId)) {
+      setChatrooms(x => [...x, data.chatroomId]);
+    } else {
+      setError(`Room ${data.chatroomId} already exists`)
     }
-    setRoomID(e.target.value)
+    return data
   }
 
-  function handleJoinChatroom(e) {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const formDataObj = {}
-    formData.forEach((value, key) => { formDataObj[key] = value });
-    console.debug(formDataObj)
-    joinVideoChatroom(formDataObj["joinChatroomId"]).then((result) => {
-      console.debug(result)
-      if (result) {
-        const { chatroomId, alias } = result
-        setChatrooms(arr => [...arr, chatroomId || alias ])
-      }
-    }).catch((error) => {
-      console.error(error)
+  async function listChatrooms() {
+    const query = `
+    query {
+      videoRooms
+    }`
+  
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/graphql/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        query: query
+      }),
+      headers: {
+        'content-type': 'application/json',
+      },
     })
+    const resJson = await res.json()
+    const data = resJson.data.videoRooms
+    setChatrooms( x => [...data])
+    return data
   }
 
-  function handleCreateChatroom(e) {
-    e.preventDefault()
-    joinVideoChatroom().then((result) => {
-      console.debug(result)
-      const { chatroomId } = result
-      setChatrooms(arr => [...arr, chatroomId])
-    })
+  function handleCreateSession(event) {
+    event.preventDefault()
+    if (!username) {
+      setError("Please enter a username")
+      return
+    }
+    postCreateSessionID(event.target.videoRoom.value, username)
   }
 
-  function handleCopyRoomID() {
-    navigator.clipboard.writeText(roomID)
+  function handleChangeUsername(event) {
+    event.preventDefault()
+    setUsername(event.target.username.value)
+  }
+
+  function connectChatroom(event) {
+    event.preventDefault()
+    setRoomID(event.target.value)
   }
 
   useEffect(() => {
-    getChatroom().then((result) => {
-      setChatrooms(result)
-    })
+    listChatrooms()
+  },[])
 
-  }, [isLogin])
-
-  useEffect(() => {
-    console.debug('roomID changed', roomID)
-    setRootRoomID(roomID)
-  }, [roomID])
-
-  return <div>
-    <h3>{username ? `Hello, ${username}` : "Sidebar"}</h3>
-    <LoginForm disabled={isLogin} onSubmit={handleLogin} />
-    <button disabled={!isLogin} onClick={handleLogout}>Logout</button>
-    <div>
-      Chatrooms
-      <ul>
-        {chatrooms.map((value, index) => {
-          return <li key={index}><button value={value} onClick={connectChatroom} key={value}>{value}</button></li>
-        })}
-      </ul>
-    </div>
-    <form onSubmit={handleJoinChatroom} disabled={!isLogin}>
-      <label htmlFor="joinChatroomId">Chatroom ID</label>
-      <input type="text" name="joinChatroomId" id="joinChatroomId"></input>
-      <button type="submit" value="submit" disabled={!isLogin}>
-        Join chatroom
-      </button>
-    </form>
-    <button onClick={handleCreateChatroom} disabled={false}>
-      Create new chatroom
-    </button>
-    <br />
-    <button onClick={handleCopyRoomID} disabled={roomID === ""}>
-      Copy RoomID
-    </button>
-    <div style={{ marginTop: "20px" }}>
-      <hr />
-      <p>Chat status : {chatReady ? <span style={{ color: "green" }}>Ready</span> : <span style={{ color: "red" }}>Not Ready</span>}
+  return (
+    <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
+      <div className="flex justify-between">
+        <span className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+          {username ? `Hello, ${username}` : "Sidebar"} 
+        </span>
+        <span className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+          {roomID ? `Room ID: ${roomID}` : ""}
+        </span>
+      </div>
+      <p className="text-red-500 text-sm my-2">
+        {error ? "(ಠ_ಠ) "+error : "ᕙ(`▽´)ᕗ"}
       </p>
+      <div className="flex flex-row space-x-4">
+        <div className="flex-1">
+          <form className="max-w-sm mx-auto bg-white dark:bg-gray-700 p-4 rounded-lg shadow" onSubmit={handleCreateSession}>
+            <div className="mb-4">
+              <label htmlFor="video-room" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                Session ID
+              </label>
+              <input
+                type="text"
+                id="video-room"
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="UUID string or alias"
+                name="videoRoom"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+              Create
+            </button>
+          </form>
+        </div>
+        <div className="flex-1">
+          <form className="max-w-sm mx-auto" onSubmit={handleChangeUsername}>
+            <div className="mt-5" >
+              <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                Username
+              </label>
+              <input
+                type="text"
+                id="username"
+                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="mx-1 my-2 sm:w-auto px-3 py-2 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+              Create
+            </button>
+            <button
+              type="submit"
+              className="sm:w-auto px-3 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-red-800"
+            >
+              Clear Session
+            </button>
+          </form>
+        </div>
+        <div className="flex-1">
+          <div>
+            <h4 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Chatrooms</h4>
+            <ul className="list-none list-inside space-y-2">
+              {chatrooms.map((value, index) => (
+                <li key={index} className="shadow hover:bg-gray-100 dark:hover:bg-grey-700 rounded-lg">
+                  <button
+                    value={value}
+                    onClick={connectChatroom}
+                    className="w-full text-left px-4 py-2 text-blue-500 hover:underline focus:outline-none"
+                  >
+                    {value}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  );
 }

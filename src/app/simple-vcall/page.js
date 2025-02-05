@@ -13,7 +13,7 @@ const VideoCall = () => {
   const rtcPeerConnectionRef = useRef(null);
   const [candidateQueue, setCandidateQueue] = useState([]);
 
-  const [roomID,setRoomID] = useState("")
+  const [roomID, setRoomID] = useState("")
 
   useEffect(() => {
     const configuration = {
@@ -50,10 +50,10 @@ const VideoCall = () => {
   }, []);
 
   useEffect(() => {
-    if(roomID !== "") {
+    if (roomID !== "") {
       establishWebsocket()
     }
-    return () => {}
+    return () => { }
   }, [roomID])
 
   function establishWebsocket() {
@@ -137,20 +137,26 @@ const VideoCall = () => {
 
   const sendSignalingMessage = (message) => {
     // Implement your signaling mechanism here (e.g., WebSocket, HTTP)
-    websocketRef.current.send(JSON.stringify({type:message.type, data:message}))
+    websocketRef.current.send(JSON.stringify({ type: message.type, data: message }))
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <Sidebar setRootRoomID={setRoomID}/>
-      <div>
-        <h1>Video Call</h1>
-        <h2>local</h2>
-        <video ref={localVideoRef} autoPlay playsInline muted />
-        <h2>remote</h2>
-        <video ref={remoteVideoRef} autoPlay playsInline />
-        {roomID && <button onClick={startCall}>Start Call</button>}
+    <div className="flex flex-col items-center">
+      <div className="w-full max-w-4xl p-4">
+        <h1 className="text-2xl font-bold mb-4">Video Call</h1>
+        <div className="flex flex-row space-x-4">
+          <div className="flex-1">
+            <h2 className="text-xl mb-2">local</h2>
+            <video ref={localVideoRef} autoPlay playsInline muted className="w-full mb-4" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl mb-2">remote</h2>
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full mb-4" />
+          </div>
+        </div>
+        {roomID && <button onClick={startCall} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Start Call</button>}
       </div>
+      <Sidebar setRootRoomID={setRoomID} />
     </div>
   );
 };
