@@ -4,7 +4,7 @@ import { login, logout } from "@/authService";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
 
 
-export default function Sidebar() {
+export default function Sidebar({setParentRoomID, setParentUsername, sendSignalingMessage}) {
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
@@ -74,12 +74,21 @@ export default function Sidebar() {
 
   function handleChangeUsername(event) {
     event.preventDefault()
-    setUsername(event.target.username.value)
+    let username = event.target.username.value
+    setUsername(username)
+    setParentUsername(username)
   }
 
   function connectChatroom(event) {
     event.preventDefault()
     setRoomID(event.target.value)
+    setParentRoomID(event.target.value)
+  }
+  
+  function disconnect(){   
+    setRoomID("")
+    setParentRoomID("")
+    sendSignalingMessage(username, {type: "clear-session"})
   }
 
   useEffect(() => {
@@ -143,8 +152,9 @@ export default function Sidebar() {
               Create
             </button>
             <button
-              type="submit"
+              type="button"
               className="sm:w-auto px-3 py-2 text-sm font-medium text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-red-800"
+              onClick={() => disconnect()}
             >
               Clear Session
             </button>
