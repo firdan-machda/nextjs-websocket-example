@@ -1,15 +1,14 @@
 'use client'
 import Image from 'next/image'
 import styles from './page.module.css'
-import { createRef, useEffect, useState } from 'react'
-import io from 'socket.io-client'
+import { useEffect, useState } from 'react'
 import Card from '@/components/card'
 import Actions from '@/components/actions'
 import {
   CSSTransition,
   TransitionGroup,
 } from 'react-transition-group';
-let socket;
+
 
 export default function Home() {
   const MAX_TRIES = 3
