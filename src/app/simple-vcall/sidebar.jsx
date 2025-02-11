@@ -2,14 +2,28 @@ import { useState, useEffect, useRef } from "react";
 import LoginForm from "@/components/login-form";
 import { login, logout } from "@/authService";
 import { joinVideoChatroom, getChatroom } from "@/chatroomService";
+import Cookies from 'universal-cookie';
 
 
 export default function Sidebar({setParentRoomID, setParentUsername, sendSignalingMessage}) {
+  const cookies = new Cookies()
 
   const [roomID, setRoomID] = useState("")
   const [chatrooms, setChatrooms] = useState([])
   const [username, setUsername] = useState("")
   const [error, setError] = useState("")
+
+   useEffect(() => {
+      // set username from cookies
+      if (cookies.get('username')){
+        setUsername(cookies.get('username'))
+        setParentUsername(cookies.get('username'))
+      } 
+      if (cookies.get('roomID')){
+        setRoomID(cookies.get('roomID'))
+        setParentRoomID(cookies.get('roomID'))
+      }
+    }, []);
 
   async function postCreateSessionID(chatroomId, username) {
     const query = `
@@ -77,12 +91,15 @@ export default function Sidebar({setParentRoomID, setParentUsername, sendSignali
     let username = event.target.username.value
     setUsername(username)
     setParentUsername(username)
+
+    cookies.set('username', username)
   }
 
   function connectChatroom(event) {
     event.preventDefault()
     setRoomID(event.target.value)
     setParentRoomID(event.target.value)
+    cookies.set('roomID', event.target.value)
   }
   
   function disconnect(){   

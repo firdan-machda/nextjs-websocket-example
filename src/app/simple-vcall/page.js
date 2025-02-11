@@ -13,42 +13,36 @@ const VideoCall = () => {
   const remoteStreamRef = useRef(null)
 
   const websocketRef = useRef(null)
+
+  const peerConnectionRef = useRef(null);
+
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const peerConnectionRef = useRef(null);
+
   const [log, setLog] = useState([]);
   const [candidateQueue, setCandidateQueue] = useState([]);
 
-
-
   const [roomID, setRoomID] = useState("")
   const [username, setUsername] = useState("")
-  const [otherUser, setOtherUser] = useState({username: "", offer:""})
+  const [otherUser, setOtherUser] = useState({ username: "", offer: "" })
   const [currentSDP, setCurrentSDP] = useState("")
   const [currentICE, setCurrentICE] = useState([])
   const [remoteSDP, setRemoteSDP] = useState("")
   const [remoteICE, setRemoteICE] = useState("")
+  
+  const [hideForm, setHideForm] = useState(true)
+  const [hideInfo, setHideInfo] = useState(true)
 
-  // const configuration = {
-  //   iceServers: [
-  //     { urls: "stun:stun.l.google.com:19302" },
-  //   //   { urls: "stun:stun1.l.google.com:19302" },
-  //   //   { urls: "stun:stun2.l.google.com:19302" },
-  //   //   { urls: "stun:stun3.l.google.com:19302" },
-  //   //   { urls: "stun:stun4.l.google.com:19302" },
-  //   ]
-  // };
+  const [hasTrack, setHasTrack] = useState(false)
 
   const configuration = {
     iceServers: [
-      { urls: [
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302"
-      ]},
-    //   { urls: "stun:stun1.l.google.com:19302" },
-    //   { urls: "stun:stun2.l.google.com:19302" },
-    //   { urls: "stun:stun3.l.google.com:19302" },
-    //   { urls: "stun:stun4.l.google.com:19302" },
+      {
+        urls: [
+          "stun:stun.l.google.com:19302",
+          "stun:stun1.l.google.com:19302"
+        ]
+      },
     ]
   };
 
@@ -61,46 +55,64 @@ const VideoCall = () => {
 
   const createPeerConnection = async (offerObj) => {
     setLog(prevLog => [...prevLog, `Creating peer connection for ${username}`])
-    const pc = new RTCPeerConnection(configuration);
+    peerConnectionRef.current = new RTCPeerConnection(configuration);
     
+    const pc = peerConnectionRef.current;
+
     // setting up video for remote stream
     // when remote stream is received, add it to the remote video element
     remoteStreamRef.current = new MediaStream();
     remoteVideoRef.current.srcObject = remoteStreamRef.current;
-
+    
     // setting up video for local stream
     localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
-
-    peerConnectionRef.current = pc;
-
+    
+    
     pc.onicecandidate = (e) => {
       setLog(prevLog => [...prevLog, `send ice candidate ${username}`])
-      console.log('send ice candidate',e.candidate)
-      if(!username){
+      console.log('send ice candidate', e.candidate)
+      if (!username) {
         console.warn("attempt to send candidate with null username")
       }
       if (e.candidate) {
         setCurrentICE(prevICE => [...prevICE, e.candidate])
-        sendSignalingMessage(username, {type: 'candidate', candidate: e.candidate });
+        sendSignalingMessage(username, { type: 'candidate', candidate: e.candidate });
       }
     };
-
+    pc.oniceconnectionstatechange = (e) => {
+      console.log('ice connection state change :', pc.iceConnectionState)
+      setLog(prevLog => [...prevLog, `ice connection state change ${pc.iceConnectionState}`])
+    }
+    pc.onsignalingstatechange = (e) => {
+      console.log('signaling state change', e)
+      console.log(pc.signalingState)      
+      if (pc.signalingState === "have-remote-offer") {
+        // attempt to process ice candidate queue
+        processCandidateQueue()
+      }
+    }
+    
     pc.ontrack = (e) => {
+      if (hasTrack){
+        return 
+      }
+      setHasTrack(true)
       setLog(prevLog => [...prevLog, `${username} got a track from other stream`])
       console.log('got a track from other stream')
+      console.log(e)
       e.streams[0].getTracks().forEach(track => {
         remoteStreamRef.current.addTrack(track, remoteStreamRef.current);
         console.log('streaming should start')
         setLog(prevLog => [...prevLog, `streaming should starting ... finger cross`])
       });
       // if (remoteVideoRef.current.srcObject) {
-      //   remoteVideoRef.current.srcObject.addTrack(event.track);
-      // } else {
-      //   remoteVideoRef.current.srcObject = event.streams[0];
-      // }
+        //   remoteVideoRef.current.srcObject.addTrack(event.track);
+        // } else {
+          //   remoteVideoRef.current.srcObject = event.streams[0];
+          // }
     };
-
-    if (offerObj){
+        
+    if (offerObj) {
       await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
     }
   }
@@ -115,7 +127,14 @@ const VideoCall = () => {
     }
     return () => { }
   }, [roomID])
-  
+   
+  async function processCandidateQueue() {
+
+    for (const candidate of candidateQueue) {
+      await peerConnectionRef.current.addIceCandidate(candidate);
+    }
+    setCandidateQueue([]);
+  } 
   function establishWebsocket() {
     setLog(prevLog => [...prevLog, `Establishing websocket for ${roomID}`])
     if (typeof window !== "undefined") {
@@ -160,11 +179,11 @@ const VideoCall = () => {
     }
   }
 
-  
+
 
   const startCall = async () => {
     setLog(prevLog => [...prevLog, `Starting call for ${username}`])
-    if (!username){
+    if (!username) {
       new Error("cannot call when username is empty")
     }
     if (!roomID) {
@@ -182,11 +201,15 @@ const VideoCall = () => {
 
   const answerCall = async (offerObj) => {
     setLog(prevLog => [...prevLog, `Answering call for ${username}`])
-    console.log("Answering call", offerObj)
+    
     await fetchUserMedia()
     await createPeerConnection(offerObj)
     const answer = await peerConnectionRef.current.createAnswer({});
     await peerConnectionRef.current.setLocalDescription(answer);
+    
+
+    console.log("------ Answering call ------")
+    console.log(offerObj)
     sendSignalingMessage(username, { type: 'answer', sdp: answer.sdp });
   }
 
@@ -195,11 +218,10 @@ const VideoCall = () => {
 
     let offer = res.data
     // make sure offer is from the other user
-    if (username != res.owner) {
+    if (username != res.owner ) {
       console.log("Received offer", res)
 
-      setOtherUser({username:res.owner, offer: JSON.stringify(offer)})
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: offer.type, sdp: offer.sdp }));
+      setOtherUser({ username: res.owner, offer: offer })
     }
     // const answer = await peerConnectionRef.current.createAnswer();
     // await peerConnectionRef.current.setLocalDescription(answer);
@@ -214,7 +236,7 @@ const VideoCall = () => {
     if (username != res.owner) {
       console.log("Received answer", answer)
 
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: answer.type, sdp: answer.sdp }));
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: answer.sdp }));
     }
     // const answer = await peerConnectionRef.current.createAnswer();
     // await peerConnectionRef.current.setLocalDescription(answer);
@@ -224,12 +246,12 @@ const VideoCall = () => {
 
   const handleSignalUserCandidate = async (res) => {
     setLog(prevLog => [...prevLog, `Received candidate from ${res.owner}`])
-
+    console.log(res)
     let candidate = res.data.candidate
     // make sure candidate is from the other user
     if (username != res.owner) {
       console.log("Received candidate", res, candidate)
-      if (peerConnectionRef.current.remoteDescription) {
+      if (peerConnectionRef.current?.remoteDescription) {
         console.log('Adding ICE candidate');
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } else {
@@ -242,7 +264,7 @@ const VideoCall = () => {
   const handleSignalingMessage = async (message) => {
     const { type, sdp, candidate } = message;
 
-      if (type === 'offer') {
+    if (type === 'offer') {
       console.log('Received offer', sdp);
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
       const answer = await peerConnectionRef.current.createAnswer();
@@ -268,37 +290,38 @@ const VideoCall = () => {
     console.log(username, message)
     // Implement your signaling mechanism here (e.g., WebSocket, HTTP)
     if (username) {
-      websocketRef.current?.send(JSON.stringify({ owner:username, type: message.type, data: message }))
+      websocketRef.current?.send(JSON.stringify({ owner: username, type: message.type, data: message }))
     } else {
       new Error("Attempt send signal while username is empty")
     }
   };
 
-  function eClickAnswerBtn(e){
+  function eClickAnswerBtn(e) {
     e.preventDefault()
+    const username = e.currentTarget.id.replace("btn-", "")
 
     setLog(prevLog => [...prevLog, `Clicked button call for ${otherUser.username}`])
-    const offer = JSON.parse(otherUser.offer)
 
-    answerCall(offer)
+
+    answerCall(otherUser.offer)
   }
 
-  
+
   useEffect(() => {
-    async function handleManuallySetRemote(remoteSDP, remoteICE){
+    async function handleManuallySetRemote(remoteSDP, remoteICE) {
       const sdp = JSON.parse(remoteSDP)
       const ice = JSON.parse(remoteICE)
       await fetchUserMedia()
-      await createPeerConnection({type: "answer", sdp: sdp})
-      for (const candidate of ice){
+      await createPeerConnection({ type: "answer", sdp: sdp })
+      for (const candidate of ice) {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       }
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: sdp }));
     }
-    if (remoteSDP && remoteICE){
+    if (remoteSDP && remoteICE) {
       handleManuallySetRemote(remoteSDP, remoteICE)
     }
-    return () => {}
+    return () => { }
   }, [remoteICE, remoteSDP])
 
   function handleSetRemoteSDP(event) {
@@ -308,14 +331,14 @@ const VideoCall = () => {
     // const offerObj = JSON.parse(remoteSDP);
   }
 
-  function handleSetRemoteICE(event){
+  function handleSetRemoteICE(event) {
     event.preventDefault();
-    const remoteICE = event.target.remoteICE.value.trim();  
+    const remoteICE = event.target.remoteICE.value.trim();
     setRemoteICE(remoteICE)
   }
 
   return (
-    <div className="flex flex-col  items-center">
+    <div className="flex flex-col">
       <div className="w-full max-w-4xl p-4">
         <h1 className="text-2xl font-bold mb-4">Video Call</h1>
         <div className="flex flex-row space-x-4">
@@ -329,10 +352,15 @@ const VideoCall = () => {
           </div>
         </div>
         {roomID && <button onClick={startCall} className="mt-4  px-4 py-2 bg-blue-500 text-white rounded">Start Call</button>}
-        {otherUser?.username && <button onClick={eClickAnswerBtn} className="mt-4 ml-2 px-4 py-2 bg-red-500 text-white rounded">Answer {otherUser?.username}</button>}
+        {otherUser?.username && <button id={`btn-${otherUser.username}`} onClick={eClickAnswerBtn} className="mt-4 ml-2 px-4 py-2 bg-red-500 text-white rounded">Answer {otherUser?.username}</button>}
       </div>
-      <div className="m-4 flex flex-row items-center space-x-4">
-        <form className="max-w-sm mx-auto bg-white p-4 rounded-lg shadow" onSubmit={handleSetRemoteSDP}>
+      <Sidebar setParentRoomID={setRoomID} setParentUsername={setUsername} sendSignalingMessage={sendSignalingMessage} />
+      <div className="m-4 flex flex-row space-x-4 ">
+        <div className="text-xl font-bold">Manual SDP and ICE</div>
+        <button onClick={() => setHideForm(!hideForm)} className="px-2 py-1 bg-blue-500 text-white rounded">{hideForm ? "+" : "-"}</button>
+      </div>
+      <div className={`m-4 flex flex-row space-x-4 items-start ${hideForm ? "hidden" : ""}`}>
+        <form className="max-w-sm bg-white p-4 rounded-lg shadow" onSubmit={handleSetRemoteSDP}>
           <div>
             <label htmlFor="remote-sdp" className="block mb-2 text-sm font-medium text-gray-900">
               Remote SDP
@@ -352,7 +380,7 @@ const VideoCall = () => {
             Set Remote SDP
           </button>
         </form>
-        <form className="max-w-sm mx-auto bg-white p-4 rounded-lg shadow" onSubmit={handleSetRemoteICE}>
+        <form className="max-w-sm bg-white p-4 rounded-lg shadow" onSubmit={handleSetRemoteICE}>
           <div>
             <label htmlFor="remote-sdp" className="block mb-2 text-sm font-medium text-gray-900">
               Remote ICE
@@ -373,15 +401,24 @@ const VideoCall = () => {
           </button>
         </form>
       </div>
-      <div className="m-4 flex-row flex space-x-4">
-        <h2 className="text-xl font-bold mb-4">SDP</h2>
-        <p>{currentSDP}</p>
-        <h2 className="text-xl font-bold mb-4">ICE</h2>
-        <p>{currentICE.map((val, idx)=>{
-          return <>{JSON.stringify(val)} <br/> </>
-        })}</p>
+      <div className="m-4 flex flex-row items-center space-x-4">
+        <h2 className="text-xl font-bold">Info</h2>
+        <button onClick={() => setHideInfo(!hideInfo)} className="px-2 py-2 bg-blue-500 text-white rounded">{hideInfo ? "+" : "-"}</button>
       </div>
-      <Sidebar setParentRoomID={setRoomID} setParentUsername={setUsername} sendSignalingMessage={sendSignalingMessage}/>
+      <div className="m-4 flex-col flex space-x-4" className={`m-4 flex flex-row items-center space-x-4 ${hideInfo ? "hidden" : ""}`} >
+        <div className="flex-1">
+          <h2 className="text-xl font-bold mb-4">SDP</h2>
+          <p className='mx-auto'>{currentSDP}</p>
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-bold mb-4">ICE</h2>
+          <div className='mx-auto'>
+            <p>{currentICE.map((val, idx) => {
+              return <React.Fragment key={idx}>{JSON.stringify(val)} <br /> </React.Fragment>
+            })}</p>
+          </div>
+        </div>
+      </div>
       <div className="absolute top-0 right-0 max-h-96 max-w-48 overflow-y-auto shadow-lg p-4 bg-gray-100">
         <h2 className="text-xl font-bold mb-4">Log</h2>
         <ul>
