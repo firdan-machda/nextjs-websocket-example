@@ -405,7 +405,7 @@ const VideoCall = () => {
         <h2 className="text-xl font-bold">Info</h2>
         <button onClick={() => setHideInfo(!hideInfo)} className="px-2 py-2 bg-blue-500 text-white rounded">{hideInfo ? "+" : "-"}</button>
       </div>
-      <div className="m-4 flex-col flex space-x-4" className={`m-4 flex flex-row items-center space-x-4 ${hideInfo ? "hidden" : ""}`} >
+      <div className={`m-4 flex flex-row items-center space-x-4 ${hideInfo ? "hidden" : ""}`} >
         <div className="flex-1">
           <h2 className="text-xl font-bold mb-4">SDP</h2>
           <p className='mx-auto'>{currentSDP}</p>
