@@ -291,18 +291,5 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
     return () => { }
   }, [remoteICE, remoteSDP])
 
-  function handleSetRemoteSDP(event) {
-    event.preventDefault();
-    const remoteSDP = event.target.remoteSDP.value.trim();
-    setRemoteSDP(remoteSDP)
-    // const offerObj = JSON.parse(remoteSDP);
-  }
-
-  function handleSetRemoteICE(event) {
-    event.preventDefault();
-    const remoteICE = event.target.remoteICE.value.trim();
-    setRemoteICE(remoteICE)
-  }
-
-  return {log}
+  return {log, eClickAnswerBtn, startCall}
 }

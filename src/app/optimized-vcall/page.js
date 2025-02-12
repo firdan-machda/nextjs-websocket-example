@@ -298,23 +298,10 @@ const VideoCall = () => {
     return () => { }
   }, [remoteICE, remoteSDP])
 
-  function handleSetRemoteSDP(event) {
-    event.preventDefault();
-    const remoteSDP = event.target.remoteSDP.value.trim();
-    setRemoteSDP(remoteSDP)
-    // const offerObj = JSON.parse(remoteSDP);
-  }
-
-  function handleSetRemoteICE(event) {
-    event.preventDefault();
-    const remoteICE = event.target.remoteICE.value.trim();
-    setRemoteICE(remoteICE)
-  }
-
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col bg-neutral-900 h-screen text-slate-300">
       <div className="w-full max-w-4xl p-4">
-        <h1 className="text-2xl font-bold mb-4">Video Call</h1>
+        <h1 className="text-2xl font-bold mb-4">Optimized Video Call</h1>
         <div className="flex flex-row space-x-4">
           <div className="flex-1">
             <h2 className="text-xl mb-2">local</h2>
@@ -329,7 +316,7 @@ const VideoCall = () => {
         {otherUser?.username && <button id={`btn-${otherUser.username}`} onClick={eClickAnswerBtn} className="mt-4 ml-2 px-4 py-2 bg-red-500 text-white rounded">Answer {otherUser?.username}</button>}
       </div>
       <Sidebar setParentRoomID={setRoomID} setParentUsername={setUsername} sendSignalingMessage={sendSignalingMessage} />
-      <div className="absolute top-0 right-0 max-h-96 max-w-48 overflow-y-auto shadow-lg p-4 bg-gray-100">
+      <div className="absolute top-0 right-0 max-h-96 max-w-48 overflow-y-auto shadow-lg p-4 bg-gray-100 text-slate-900">
         <h2 className="text-xl font-bold mb-4">Log</h2>
         <ul>
           {log.map((text, index) => (

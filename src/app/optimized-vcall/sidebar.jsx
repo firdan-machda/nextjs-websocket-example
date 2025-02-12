@@ -113,12 +113,12 @@ export default function Sidebar({setParentRoomID, setParentUsername, sendSignali
   },[])
 
   return (
-    <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
+    <div className="p-4 bg-slate-700 rounded-lg shadow-md text-slate-200">
       <div className="flex justify-between">
-        <span className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+        <span className="text-xl font-bold mb-4">
           {username ? `Hello, ${username}` : "Sidebar"} 
         </span>
-        <span className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+        <span className="text-xl font-bold mb-4">
           {roomID ? `Room ID: ${roomID}` : ""}
         </span>
       </div>
@@ -129,7 +129,7 @@ export default function Sidebar({setParentRoomID, setParentUsername, sendSignali
         <div className="flex-auto">
           <form className="max-w-sm" onSubmit={handleChangeUsername}>
             <div className="mt-5" >
-              <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              <label htmlFor="username" className="block mb-2 text-sm font-medium">
                 Username
               </label>
               <input
