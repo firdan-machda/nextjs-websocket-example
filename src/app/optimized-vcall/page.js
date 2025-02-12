@@ -23,14 +23,7 @@ const VideoCall = () => {
   const [roomID, setRoomID] = useState("")
   const [username, setUsername] = useState("")
   const [otherUser, setOtherUser] = useState({ username: "", offer: "" })
-  const [currentSDP, setCurrentSDP] = useState("")
-  const [currentICE, setCurrentICE] = useState([])
-  const [remoteSDP, setRemoteSDP] = useState("")
-  const [remoteICE, setRemoteICE] = useState("")
   
-  const [hideForm, setHideForm] = useState(true)
-  const [hideInfo, setHideInfo] = useState(true)
-
   const [hasTrack, setHasTrack] = useState(false)
 
   const configuration = {
@@ -65,7 +58,6 @@ const VideoCall = () => {
     // setting up video for local stream
     localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
     
-    
     pc.onicecandidate = (e) => {
       setLog(prevLog => [...prevLog, `send ice candidate ${username}`])
       console.log('send ice candidate', e.candidate)
@@ -73,17 +65,18 @@ const VideoCall = () => {
         console.warn("attempt to send candidate with null username")
       }
       if (e.candidate) {
-        setCurrentICE(prevICE => [...prevICE, e.candidate])
         sendSignalingMessage(username, { type: 'candidate', candidate: e.candidate });
       }
     };
+    
     pc.oniceconnectionstatechange = (e) => {
       console.log('ice connection state change :', pc.iceConnectionState)
       setLog(prevLog => [...prevLog, `ice connection state change ${pc.iceConnectionState}`])
     }
+
     pc.onsignalingstatechange = (e) => {
-      console.log('signaling state change', e)
-      console.log(pc.signalingState)      
+      console.log('signaling state change: ', pc.signalingState)
+      setLog(prevLog => [...prevLog, `signaling state change: ${pc.signalingState}`])
       if (pc.signalingState === "have-remote-offer") {
         // attempt to process ice candidate queue
         processCandidateQueue()
@@ -97,17 +90,11 @@ const VideoCall = () => {
       setHasTrack(true)
       setLog(prevLog => [...prevLog, `${username} got a track from other stream`])
       console.log('got a track from other stream')
-      console.log(e)
       e.streams[0].getTracks().forEach(track => {
         remoteStreamRef.current.addTrack(track, remoteStreamRef.current);
         console.log('streaming should start')
         setLog(prevLog => [...prevLog, `streaming should starting ... finger cross`])
       });
-      // if (remoteVideoRef.current.srcObject) {
-        //   remoteVideoRef.current.srcObject.addTrack(event.track);
-        // } else {
-          //   remoteVideoRef.current.srcObject = event.streams[0];
-          // }
     };
         
     if (offerObj) {
@@ -133,6 +120,7 @@ const VideoCall = () => {
     }
     setCandidateQueue([]);
   } 
+
   function establishWebsocket() {
     setLog(prevLog => [...prevLog, `Establishing websocket for ${roomID}`])
     if (typeof window !== "undefined") {
@@ -173,10 +161,8 @@ const VideoCall = () => {
       }
 
       websocketRef.current = ws
-      // setLoading(false)
     }
   }
-
 
 
   const startCall = async () => {
@@ -193,7 +179,6 @@ const VideoCall = () => {
 
     const offer = await peerConnectionRef.current.createOffer();
     await peerConnectionRef.current.setLocalDescription(offer);
-    setCurrentSDP(JSON.stringify(offer.sdp))
     sendSignalingMessage(username, { type: 'offer', sdp: offer.sdp });
   };
 
@@ -206,8 +191,7 @@ const VideoCall = () => {
     await peerConnectionRef.current.setLocalDescription(answer);
     
 
-    console.log("------ Answering call ------")
-    console.log(offerObj)
+    console.log("------ Answering call ------")   
     sendSignalingMessage(username, { type: 'answer', sdp: answer.sdp });
   }
 
@@ -221,9 +205,6 @@ const VideoCall = () => {
 
       setOtherUser({ username: res.owner, offer: offer })
     }
-    // const answer = await peerConnectionRef.current.createAnswer();
-    // await peerConnectionRef.current.setLocalDescription(answer);
-    // sendSignalingMessage({ type: 'answer', sdp: answer.sdp });   
   }
 
   const handleSignalUserAnswer = async (res) => {
@@ -236,9 +217,6 @@ const VideoCall = () => {
 
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: answer.sdp }));
     }
-    // const answer = await peerConnectionRef.current.createAnswer();
-    // await peerConnectionRef.current.setLocalDescription(answer);
-    // sendSignalingMessage({ type: 'answer', sdp: answer.sdp });   
   }
 
 
@@ -280,23 +258,6 @@ const VideoCall = () => {
     answerCall(otherUser.offer)
   }
 
-
-  useEffect(() => {
-    async function handleManuallySetRemote(remoteSDP, remoteICE) {
-      const sdp = JSON.parse(remoteSDP)
-      const ice = JSON.parse(remoteICE)
-      await fetchUserMedia()
-      await createPeerConnection({ type: "answer", sdp: sdp })
-      for (const candidate of ice) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: sdp }));
-    }
-    if (remoteSDP && remoteICE) {
-      handleManuallySetRemote(remoteSDP, remoteICE)
-    }
-    return () => { }
-  }, [remoteICE, remoteSDP])
 
   return (
     <div className="flex flex-col bg-neutral-900 h-screen text-slate-300">
