@@ -1,9 +1,15 @@
 'use client'
 
 import React, { useRef, useEffect, useState } from 'react';
-import Sidebar from './sidebar';
 
-export function useVidCall({localVideoRef, remoteVideoRef}) {
+/**
+ * React hook for video call. This hook is used to establish a video call between two users.
+ * As current release multiple user is not supported yet due to variables only accept one object. 
+ * TODO: For multiple user support, the variables should be an array of objects and optimize accordingly.
+ * @param {*} param0 
+ * @returns 
+ */
+export default function useVidCall({localVideoRef, remoteVideoRef, roomID, username }) {
   // where the local stream will be stored
   const localStreamRef = useRef(null);
   // where the remote stream will be stored
@@ -13,13 +19,8 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
 
   const peerConnectionRef = useRef(null);
 
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-
   const [candidateQueue, setCandidateQueue] = useState([]);
 
-  const [roomID, setRoomID] = useState("")
-  const [username, setUsername] = useState("")
   const [otherUser, setOtherUser] = useState({ username: "", offer: "" })
 
   // for logging purposes
@@ -69,7 +70,6 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
         console.warn("attempt to send candidate with null username")
       }
       if (e.candidate) {
-        setCurrentICE(prevICE => [...prevICE, e.candidate])
         sendSignalingMessage(username, { type: 'candidate', candidate: e.candidate });
       }
     };
@@ -168,7 +168,6 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
       }
 
       websocketRef.current = ws
-      // setLoading(false)
     }
   }
 
@@ -186,7 +185,6 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
 
     const offer = await peerConnectionRef.current.createOffer();
     await peerConnectionRef.current.setLocalDescription(offer);
-    setCurrentSDP(JSON.stringify(offer.sdp))
     sendSignalingMessage(username, { type: 'offer', sdp: offer.sdp });
   };
 
@@ -214,9 +212,6 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
 
       setOtherUser({ username: res.owner, offer: offer })
     }
-    // const answer = await peerConnectionRef.current.createAnswer();
-    // await peerConnectionRef.current.setLocalDescription(answer);
-    // sendSignalingMessage({ type: 'answer', sdp: answer.sdp });   
   }
 
   const handleSignalUserAnswer = async (res) => {
@@ -228,10 +223,7 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
       console.log("Received answer", answer)
 
       await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: answer.sdp }));
-    }
-    // const answer = await peerConnectionRef.current.createAnswer();
-    // await peerConnectionRef.current.setLocalDescription(answer);
-    // sendSignalingMessage({ type: 'answer', sdp: answer.sdp });   
+    } 
   }
 
 
@@ -263,33 +255,16 @@ export function useVidCall({localVideoRef, remoteVideoRef}) {
     }
   };
 
-  function eClickAnswerBtn(e) {
-    e.preventDefault()
-    const username = e.currentTarget.id.replace("btn-", "")
-
+  function eClickAnswerBtn(remoteUser) {
     setLog(prevLog => [...prevLog, `Clicked button call for ${otherUser.username}`])
-
-
     answerCall(otherUser.offer)
   }
 
-
-  useEffect(() => {
-    async function handleManuallySetRemote(remoteSDP, remoteICE) {
-      const sdp = JSON.parse(remoteSDP)
-      const ice = JSON.parse(remoteICE)
-      await fetchUserMedia()
-      await createPeerConnection({ type: "answer", sdp: sdp })
-      for (const candidate of ice) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: sdp }));
-    }
-    if (remoteSDP && remoteICE) {
-      handleManuallySetRemote(remoteSDP, remoteICE)
-    }
-    return () => { }
-  }, [remoteICE, remoteSDP])
-
-  return {log, eClickAnswerBtn, startCall}
+  return {
+    eClickAnswerBtn, 
+    startCall, 
+    sendSignalingMessage, 
+    otherUser, 
+    log
+  }
 }
