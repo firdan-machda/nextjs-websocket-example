@@ -135,6 +135,8 @@ const VideoCall = () => {
     }
     setCandidateQueue([]);
   } 
+
+
   function establishWebsocket() {
     setLog(prevLog => [...prevLog, `Establishing websocket for ${roomID}`])
     if (typeof window !== "undefined") {
@@ -260,30 +262,6 @@ const VideoCall = () => {
       }
     }
   }
-
-  const handleSignalingMessage = async (message) => {
-    const { type, sdp, candidate } = message;
-
-    if (type === 'offer') {
-      console.log('Received offer', sdp);
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
-      const answer = await peerConnectionRef.current.createAnswer();
-      await peerConnectionRef.current.setLocalDescription(answer);
-      sendSignalingMessage({ type: 'answer', sdp: answer.sdp });
-    } else if (type === 'answer') {
-      console.log('Received answer', sdp);
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type, sdp }));
-    } else if (type === 'candidate') {
-      console.log('Received ICE candidate', candidate);
-      if (peerConnectionRef.current.remoteDescription) {
-        console.log('Adding ICE candidate');
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      } else {
-        console.log('Queueing ICE candidate');
-        setCandidateQueue(prevQueue => [...prevQueue, candidate]);
-      }
-    }
-  };
 
   const sendSignalingMessage = (username, message) => {
     setLog(prevLog => [...prevLog, `Sending signaling message from ${username} with message ${message.type}`])
