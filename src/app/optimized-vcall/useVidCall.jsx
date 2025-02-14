@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useEffect, useState } from 'react';
+import useWebsocket from './useWebsocket';
 
 /**
  * React hook for video call. This hook is used to establish a video call between two users.
@@ -15,7 +16,7 @@ export default function useVidCall({localVideoRef, remoteVideoRef, roomID, usern
   // where the remote stream will be stored
   const remoteStreamRef = useRef(null)
 
-  const websocketRef = useRef(null)
+  // const websocketRef = useRef(null)
 
   const peerConnectionRef = useRef(null);
 
@@ -26,8 +27,70 @@ export default function useVidCall({localVideoRef, remoteVideoRef, roomID, usern
   // for logging purposes
   const [log, setLog] = useState([]);
 
-  // const [hasTrack, setHasTrack] = useState(false)
+  // ----------- START signaling functions ------------
+  const handleSignalUserOffer = async (res) => {
+    setLog(prevLog => [...prevLog, `Received offer from ${res.owner}`])
 
+    let offer = res.data
+    // make sure offer is from the other user
+    if (username != res.owner ) {
+      console.log("Received offer", res)
+
+      setOtherUser({ username: res.owner, offer: offer })
+    }
+  }
+
+  const handleSignalUserAnswer = async (res) => {
+    setLog(prevLog => [...prevLog, `Received answer from ${res.owner}`])
+
+    let answer = res.data
+    // make sure offer is from the other user
+    if (username != res.owner) {
+      console.log("Received answer", answer)
+
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: answer.sdp }));
+    } 
+  }
+
+  const handleSignalUserCandidate = async (res) => {
+    setLog(prevLog => [...prevLog, `Received candidate from ${res.owner}`])
+    console.log(res)
+    let candidate = res.data.candidate
+    // make sure candidate is from the other user
+    if (username != res.owner) {
+      console.log("Received candidate", res, candidate)
+      if (peerConnectionRef.current?.remoteDescription) {
+        console.log('Adding ICE candidate');
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } else {
+        console.log('Queueing ICE candidate');
+        setCandidateQueue(prevQueue => [...prevQueue, candidate]);
+      }
+    }
+  }
+
+  const sendSignalingMessage = (username, message) => {
+    setLog(prevLog => [...prevLog, `Sending signaling message from ${username} with message ${message.type}`])
+    console.log(username, message)
+    // Implement your signaling mechanism here (e.g., WebSocket, HTTP)
+    if (username) {
+      websocket.current?.send(JSON.stringify({ owner: username, type: message.type, data: message }))
+      // websocketRef.current?.send(JSON.stringify({ owner: username, type: message.type, data: message }))
+    } else {
+      new Error("Attempt send signal while username is empty")
+    }
+  };
+
+  
+  const websocket = useWebsocket({
+    roomID,
+    onUserOffer: handleSignalUserOffer,
+    onSignalAnswer: handleSignalUserAnswer,
+    onSignalCandidate: handleSignalUserCandidate,
+    setLog
+  })
+  // ----------- END signaling functions ------------
+  
   const configuration = {
     iceServers: [
       {
@@ -111,14 +174,6 @@ export default function useVidCall({localVideoRef, remoteVideoRef, roomID, usern
       await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
     }
   }
-
-  useEffect(() => {
-    if (roomID !== "") {
-      // establish signaling server
-      establishWebsocket()
-    }
-    return () => { }
-  }, [roomID])
    
   async function processCandidateQueue() {
     for (const candidate of candidateQueue) {
@@ -126,50 +181,6 @@ export default function useVidCall({localVideoRef, remoteVideoRef, roomID, usern
     }
     setCandidateQueue([]);
   } 
-
-  function establishWebsocket() {
-    setLog(prevLog => [...prevLog, `Establishing websocket for ${roomID}`])
-    
-    if (typeof window !== "undefined") {
-      const ws = new WebSocket(
-        `${process.env.NEXT_PUBLIC_WEBSOCKET_HOST}/ws/signaling/${roomID}/`,
-      )
-      ws.onmessage = (e) => {
-        const parsed = JSON.parse(e.data)
-
-        switch (parsed.type) {
-
-          case "user-offer":
-            setLog(prevLog => [...prevLog, `Received offer from ${parsed.owner}`])
-            handleSignalUserOffer(parsed)
-            break
-          case "user-answer":
-            setLog(prevLog => [...prevLog, `Received answer from ${parsed.owner}`])
-            handleSignalUserAnswer(parsed)
-            break
-          case "user-candidate":
-            setLog(prevLog => [...prevLog, `Received candidate from ${parsed.owner}`])
-            console.log('got user candidate', parsed)
-            handleSignalUserCandidate(parsed)
-            break
-          default:
-            console.warn("Unknown message type", parsed)
-            break;
-        }
-      }
-
-      ws.onopen = (e) => {
-        console.info("Connected")
-      }
-
-      ws.onclose = (e) => {
-        console.log(e)
-        console.info('Disconnected')
-      }
-
-      websocketRef.current = ws
-    }
-  }
 
   const startCall = async () => {
     setLog(prevLog => [...prevLog, `Starting call for ${username}`])
@@ -201,59 +212,6 @@ export default function useVidCall({localVideoRef, remoteVideoRef, roomID, usern
     console.log(offerObj)
     sendSignalingMessage(username, { type: 'answer', sdp: answer.sdp });
   }
-
-  const handleSignalUserOffer = async (res) => {
-    setLog(prevLog => [...prevLog, `Received offer from ${res.owner}`])
-
-    let offer = res.data
-    // make sure offer is from the other user
-    if (username != res.owner ) {
-      console.log("Received offer", res)
-
-      setOtherUser({ username: res.owner, offer: offer })
-    }
-  }
-
-  const handleSignalUserAnswer = async (res) => {
-    setLog(prevLog => [...prevLog, `Received answer from ${res.owner}`])
-
-    let answer = res.data
-    // make sure offer is from the other user
-    if (username != res.owner) {
-      console.log("Received answer", answer)
-
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: answer.sdp }));
-    } 
-  }
-
-
-  const handleSignalUserCandidate = async (res) => {
-    setLog(prevLog => [...prevLog, `Received candidate from ${res.owner}`])
-    console.log(res)
-    let candidate = res.data.candidate
-    // make sure candidate is from the other user
-    if (username != res.owner) {
-      console.log("Received candidate", res, candidate)
-      if (peerConnectionRef.current?.remoteDescription) {
-        console.log('Adding ICE candidate');
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-      } else {
-        console.log('Queueing ICE candidate');
-        setCandidateQueue(prevQueue => [...prevQueue, candidate]);
-      }
-    }
-  }
-
-  const sendSignalingMessage = (username, message) => {
-    setLog(prevLog => [...prevLog, `Sending signaling message from ${username} with message ${message.type}`])
-    console.log(username, message)
-    // Implement your signaling mechanism here (e.g., WebSocket, HTTP)
-    if (username) {
-      websocketRef.current?.send(JSON.stringify({ owner: username, type: message.type, data: message }))
-    } else {
-      new Error("Attempt send signal while username is empty")
-    }
-  };
 
   function eClickAnswerBtn(remoteUser) {
     setLog(prevLog => [...prevLog, `Clicked button call for ${otherUser.username}`])
